@@ -53,20 +53,73 @@
     },
     "Reservation": {
       "title": "Reservation",
-      "description": "Table booking record",
+      "description": "Complete table booking and dining reservation record",
       "type": "object",
       "properties": {
         "id": { "type": "string", "description": "Unique reservation ID" },
-        "reservationId": { "type": "string", "description": "Human-readable booking code" },
-        "name": { "type": "string", "description": "Lead guest name" },
-        "phone": { "type": "string", "description": "Lead guest contact" },
-        "date": { "type": "string", "description": "Booking date string" },
-        "time": { "type": "string", "description": "Booking time slot" },
-        "guests": { "type": "number", "description": "Number of diners" },
-        "status": { "type": "string", "description": "PENDING, CONFIRMED, CANCELLED" },
+        "reservationNumber": { "type": "string", "description": "Human-readable booking code e.g. HW-20260921-0001" },
+        "customerName": { "type": "string", "description": "Lead guest name" },
+        "customerPhone": { "type": "string", "description": "Lead guest Indian mobile number" },
+        "customerEmail": { "type": "string", "description": "Optional contact email" },
+        "bookingDate": { "type": "string", "description": "Booking date string YYYY-MM-DD" },
+        "bookingTime": { "type": "string", "description": "Booking time slot HH:MM" },
+        "guestCount": { "type": "number", "description": "Number of diners" },
+        "occasion": { "type": "string", "description": "Celebration type" },
+        "specialRequest": { "type": "string", "description": "Dietary or seating note" },
+        "status": { "type": "string", "description": "PENDING, CONFIRMED, REJECTED, CANCELLED, COMPLETED, NO_SHOW" },
+        "assignedTableId": { "type": "string", "description": "ID of assigned dining table" },
+        "assignedTableNumber": { "type": "string", "description": "Display number of assigned table" },
+        "managerNote": { "type": "string", "description": "Internal note" },
+        "rejectionReason": { "type": "string", "description": "Customer-facing reason" },
+        "createdAt": { "type": "string", "description": "Creation ISO timestamp" },
+        "updatedAt": { "type": "string", "description": "Last update ISO timestamp" },
+        "confirmedAt": { "type": "string", "description": "Confirmation ISO timestamp" },
+        "cancelledAt": { "type": "string", "description": "Cancellation ISO timestamp" }
+      },
+      "required": ["id", "reservationNumber", "customerName", "customerPhone", "bookingDate", "bookingTime", "guestCount", "status"]
+    },
+    "RestaurantTable": {
+      "title": "RestaurantTable",
+      "description": "Dining table in the restaurant",
+      "type": "object",
+      "properties": {
+        "tableId": { "type": "string", "description": "Unique table ID" },
+        "tableNumber": { "type": "string", "description": "Table identifier e.g. T01" },
+        "capacity": { "type": "number", "description": "Maximum seating capacity" },
+        "location": { "type": "string", "description": "Physical section in restaurant" },
+        "status": { "type": "string", "description": "AVAILABLE, RESERVED, MAINTENANCE" }
+      },
+      "required": ["tableId", "tableNumber", "capacity", "status"]
+    },
+    "ReservationEvent": {
+      "title": "ReservationEvent",
+      "description": "Activity timeline and audit log for a reservation",
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string", "description": "Unique event ID" },
+        "reservationId": { "type": "string", "description": "Associated reservation ID" },
+        "eventType": { "type": "string", "description": "Type of event" },
+        "actorType": { "type": "string", "description": "CUSTOMER, MANAGER, SYSTEM" },
+        "actorId": { "type": "string", "description": "ID of actor" },
+        "message": { "type": "string", "description": "Readable description" },
         "createdAt": { "type": "string", "description": "ISO timestamp" }
       },
-      "required": ["id", "reservationId", "name", "phone", "date", "time", "guests", "status"]
+      "required": ["eventId", "reservationId", "eventType", "actorType", "message", "createdAt"]
+    },
+    "NotificationLog": {
+      "title": "NotificationLog",
+      "description": "Customer notification communication record",
+      "type": "object",
+      "properties": {
+        "notificationId": { "type": "string", "description": "Unique notification ID" },
+        "reservationId": { "type": "string", "description": "Associated reservation ID" },
+        "channel": { "type": "string", "description": "WHATSAPP, SMS, EMAIL" },
+        "recipient": { "type": "string", "description": "Recipient phone or email" },
+        "messageType": { "type": "string", "description": "Notification category" },
+        "status": { "type": "string", "description": "PENDING, SENT, FAILED" },
+        "createdAt": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["notificationId", "reservationId", "channel", "recipient", "messageType", "status", "createdAt"]
     },
     "Review": {
       "title": "Review",
@@ -99,6 +152,18 @@
     "/reservations/{resId}": {
       "schema": "Reservation",
       "description": "Collection of dining table reservations"
+    },
+    "/restaurant_tables/{tableId}": {
+      "schema": "RestaurantTable",
+      "description": "Collection of restaurant dining tables"
+    },
+    "/reservation_events/{eventId}": {
+      "schema": "ReservationEvent",
+      "description": "Activity timeline and audit log for table reservations"
+    },
+    "/notification_logs/{notifId}": {
+      "schema": "NotificationLog",
+      "description": "Customer notification and communication history"
     },
     "/reviews/{reviewId}": {
       "schema": "Review",

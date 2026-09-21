@@ -25,6 +25,7 @@ import {
 import { type User } from 'firebase/auth';
 import { Category, MenuItem, Order, OrderStatus, Reservation, ReservationStatus, Review } from '../types/restaurant';
 import { loginAdmin, logoutAdmin, subscribeToAuth } from '../services/authService';
+import { AdminReservationsManager } from './AdminReservationsManager';
 import {
   subscribeOrders,
   updateOrderStatus,
@@ -606,108 +607,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
           {/* TAB 3: RESERVATIONS */}
           {activeTab === 'reservations' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-serif text-lg font-bold text-[#f6f3ed]">Table Bookings</h3>
-                <select
-                  value={resStatusFilter}
-                  onChange={(e) => setResStatusFilter(e.target.value)}
-                  className="bg-[#091711] border border-[#224d3b] rounded-lg px-3 py-1.5 text-xs text-[#f6f3ed]"
-                >
-                  <option value="ALL">All Reservations ({reservations.length})</option>
-                  <option value="PENDING">PENDING</option>
-                  <option value="CONFIRMED">CONFIRMED</option>
-                  <option value="REJECTED">REJECTED</option>
-                  <option value="COMPLETED">COMPLETED</option>
-                </select>
-              </div>
-
-              {filteredReservations.length === 0 ? (
-                <div className="p-8 text-center bg-[#091711] border border-[#224d3b] rounded-xl text-xs text-[#c8c0b2]">
-                  No table reservations found.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {filteredReservations.map((res) => (
-                    <div
-                      key={res.id}
-                      className="bg-[#091711] border border-[#224d3b] rounded-xl p-5 space-y-3 shadow-md"
-                    >
-                      <div className="flex items-center justify-between border-b border-[#224d3b] pb-2">
-                        <div>
-                          <span className="font-mono text-xs font-bold text-[#d4af37]">{res.reservationId}</span>
-                          <h4 className="font-semibold text-sm text-[#f6f3ed]">{res.name}</h4>
-                        </div>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                            res.status === 'CONFIRMED'
-                              ? 'bg-emerald-950 text-emerald-300 border-emerald-500'
-                              : res.status === 'REJECTED'
-                              ? 'bg-red-950 text-red-300 border-red-500'
-                              : 'bg-amber-950 text-amber-300 border-amber-500'
-                          }`}
-                        >
-                          {res.status}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 text-xs text-[#c8c0b2]">
-                        <div>
-                          <span className="text-[#8ea098] block">Date & Time:</span>
-                          <span className="font-medium text-[#f6f3ed]">
-                            {res.date} at {res.time}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[#8ea098] block">Guests:</span>
-                          <span className="font-medium text-[#f6f3ed]">{res.guests} Persons</span>
-                        </div>
-                        <div className="col-span-2">
-                          <span className="text-[#8ea098] block">Phone:</span>
-                          <a href={`tel:${res.phone}`} className="text-[#d4af37] font-semibold">
-                            +91 {res.phone}
-                          </a>
-                        </div>
-                        {res.specialRequest && (
-                          <div className="col-span-2 text-amber-200/90 italic">
-                            "{res.specialRequest}"
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center space-x-2 pt-2 border-t border-[#224d3b]/60">
-                        {res.status !== 'CONFIRMED' && (
-                          <button
-                            onClick={() => updateReservationStatus(res.id, 'CONFIRMED')}
-                            className="flex-1 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded text-xs font-semibold flex items-center justify-center space-x-1"
-                          >
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            <span>Confirm</span>
-                          </button>
-                        )}
-                        {res.status !== 'REJECTED' && (
-                          <button
-                            onClick={() => updateReservationStatus(res.id, 'REJECTED')}
-                            className="flex-1 py-1.5 bg-red-900/80 hover:bg-red-800 text-red-200 rounded text-xs font-semibold flex items-center justify-center space-x-1"
-                          >
-                            <XCircle className="w-3.5 h-3.5" />
-                            <span>Reject</span>
-                          </button>
-                        )}
-                        {res.status === 'CONFIRMED' && (
-                          <button
-                            onClick={() => updateReservationStatus(res.id, 'COMPLETED')}
-                            className="flex-1 py-1.5 bg-[#15382a] hover:bg-[#1d4b38] text-[#d4af37] rounded text-xs font-semibold"
-                          >
-                            Mark Completed
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <AdminReservationsManager reservations={reservations} />
           )}
 
           {/* TAB 4: MENU ITEMS MANAGEMENT (CRUD) */}

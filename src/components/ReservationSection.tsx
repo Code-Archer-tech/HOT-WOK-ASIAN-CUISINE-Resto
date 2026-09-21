@@ -13,6 +13,9 @@ import {
   RotateCcw,
   Utensils,
   MapPin,
+  Mail,
+  Search,
+  CheckCircle,
 } from 'lucide-react';
 import { Reservation } from '../types/restaurant';
 import { saveReservationToFirestore } from '../services/dbService';
@@ -24,24 +27,34 @@ import {
   isValidIndianMobile,
   cleanIndianMobile,
   formatTime12h,
+  generateReservationNumber,
 } from '../config/restaurantConfig';
 
 interface FormErrors {
   name?: string;
   phone?: string;
+  email?: string;
   date?: string;
   time?: string;
   guests?: string;
 }
 
-export const ReservationSection: React.FC = () => {
+interface ReservationSectionProps {
+  onOpenStatusTracker?: (reservationNumber?: string, phone?: string) => void;
+}
+
+export const ReservationSection: React.FC<ReservationSectionProps> = ({
+  onOpenStatusTracker,
+}) => {
   const getTodayString = () => new Date().toISOString().split('T')[0];
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [date, setDate] = useState(getTodayString);
   const [time, setTime] = useState('');
   const [guests, setGuests] = useState(2);
+  const [occasion, setOccasion] = useState('');
   const [specialRequest, setSpecialRequest] = useState('');
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -80,6 +93,11 @@ export const ReservationSection: React.FC = () => {
       newErrors.phone = 'Mobile number is required.';
     } else if (!isValidIndianMobile(phone)) {
       newErrors.phone = 'Enter a valid 10-digit Indian mobile number (starts with 6, 7, 8, or 9).';
+    }
+
+    // Optional Email validation
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      newErrors.email = 'Please enter a valid email address or leave blank.';
     }
 
     // 3. Date cannot be in the past
@@ -131,10 +149,18 @@ export const ReservationSection: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             name: name.trim(),
+            customerName: name.trim(),
             phone: cleanedPhone,
+            customerPhone: cleanedPhone,
+            email: email.trim() || undefined,
+            customerEmail: email.trim() || undefined,
             date,
+            bookingDate: date,
             time,
+            bookingTime: time,
             guests,
+            guestCount: guests,
+            occasion: occasion || undefined,
             specialRequest: specialRequest.trim() || undefined,
           }),
         });
@@ -147,28 +173,35 @@ export const ReservationSection: React.FC = () => {
         }
       } catch (apiErr: any) {
         console.warn('Backend API note, using client-side reservation generator:', apiErr);
-        // Resilient fallback: generate valid reference ID locally
-        const randomDigits = Math.floor(10000 + Math.random() * 90000);
-        const refId = `HW-RES-${randomDigits}`;
+        const refId = generateReservationNumber(date);
         createdReservation = {
           id: refId.toLowerCase(),
           reservationId: refId,
+          reservationNumber: refId,
           name: name.trim(),
+          customerName: name.trim(),
           phone: cleanedPhone,
+          customerPhone: cleanedPhone,
+          email: email.trim() || undefined,
+          customerEmail: email.trim() || undefined,
           date,
+          bookingDate: date,
           time,
+          bookingTime: time,
           guests,
+          guestCount: guests,
+          occasion: occasion || undefined,
           specialRequest: specialRequest.trim() || undefined,
           status: 'PENDING',
           createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         };
-      }
 
-      // Persist to Cloud Firestore database
-      try {
-        await saveReservationToFirestore(createdReservation);
-      } catch (firestoreErr) {
-        console.warn('Firestore reservation save warning:', firestoreErr);
+        try {
+          await saveReservationToFirestore(createdReservation);
+        } catch (firestoreErr) {
+          console.warn('Firestore reservation save warning:', firestoreErr);
+        }
       }
 
       setConfirmedReservation(createdReservation);
@@ -193,8 +226,10 @@ export const ReservationSection: React.FC = () => {
     setConfirmedReservation(null);
     setName('');
     setPhone('');
+    setEmail('');
     setDate(getTodayString());
     setGuests(2);
+    setOccasion('');
     setSpecialRequest('');
     setErrors({});
     setSubmitError(null);
@@ -248,16 +283,16 @@ export const ReservationSection: React.FC = () => {
           </p>
 
           {/* Restaurant-Configurable Opening Hours Banner */}
-          <div className="inline-flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 mt-2 px-4 py-2 rounded-xl bg-[#0f271d] border border-[#224d3b] text-xs text-[#c8c0b2]">
-            <div className="flex items-center space-x-1.5 text-[#d4af37] font-medium">
+          <div className="inline-flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 lg:gap-4 mt-2 px-3.5 sm:px-4 py-2 rounded-xl bg-[#0f271d] border border-[#224d3b] text-xs text-[#c8c0b2] max-w-full text-center">
+            <div className="flex items-center space-x-1.5 text-[#d4af37] font-medium shrink-0">
               <Clock className="w-3.5 h-3.5" />
               <span>Dine-In Hours:</span>
             </div>
-            <span>
+            <span className="break-words">
               Lunch: <strong>12:30 PM – 4:00 PM</strong> • Dinner: <strong>6:30 PM – 11:30 PM</strong>
             </span>
             <span className="hidden sm:inline text-[#224d3b]">|</span>
-            <span className="text-[#8ea098]">Open All 7 Days</span>
+            <span className="text-[#8ea098] shrink-0">Open All 7 Days</span>
           </div>
         </div>
 
@@ -265,19 +300,19 @@ export const ReservationSection: React.FC = () => {
         {confirmedReservation ? (
           <div
             id="reservation-confirmation-card"
-            className="bg-[#0f271d] border border-[#d4af37] rounded-2xl p-6 sm:p-9 shadow-2xl space-y-6 animate-fade-in"
+            className="bg-[#0f271d] border border-[#d4af37] rounded-2xl p-4 sm:p-7 md:p-9 shadow-2xl space-y-6 animate-fade-in"
           >
             {/* Status Header */}
             <div className="text-center space-y-3">
-              <div className="w-16 h-16 rounded-full bg-[#15382a] border-2 border-[#d4af37] text-[#d4af37] flex items-center justify-center mx-auto shadow-md">
-                <Utensils className="w-8 h-8" />
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#15382a] border-2 border-[#d4af37] text-[#d4af37] flex items-center justify-center mx-auto shadow-md">
+                <Utensils className="w-7 h-7 sm:w-8 sm:h-8" />
               </div>
 
-              <div className="inline-block px-3 py-1 rounded-full bg-amber-950/80 border border-amber-500/70 text-amber-300 text-xs font-bold uppercase tracking-wider">
+              <div className="inline-block px-3 py-1 rounded-full bg-amber-950/80 border border-amber-500/70 text-amber-300 text-[11px] sm:text-xs font-bold uppercase tracking-wider max-w-full break-words">
                 Booking Request Submitted • Pending Table Confirmation
               </div>
 
-              <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[#f6f3ed]">
+              <h3 className="font-serif text-xl sm:text-2xl md:text-3xl font-bold text-[#f6f3ed] break-words">
                 We Have Received Your Table Enquiry, {confirmedReservation.name}!
               </h3>
 
@@ -298,19 +333,19 @@ export const ReservationSection: React.FC = () => {
             </div>
 
             {/* Booking Summary Box */}
-            <div className="bg-[#07130e] border border-[#224d3b] rounded-xl p-5 sm:p-6 max-w-lg mx-auto space-y-4">
-              <div className="flex items-center justify-between border-b border-[#224d3b] pb-3">
+            <div className="bg-[#07130e] border border-[#224d3b] rounded-xl p-4 sm:p-6 max-w-lg mx-auto space-y-4">
+              <div className="flex items-center justify-between border-b border-[#224d3b] pb-3 gap-2 flex-wrap">
                 <span className="text-xs text-[#8ea098]">Booking Reference:</span>
                 <div className="flex items-center space-x-2">
                   <span
                     id="booking-reference-id"
-                    className="font-mono font-bold text-sm sm:text-base text-[#d4af37]"
+                    className="font-mono font-bold text-sm sm:text-base text-[#d4af37] break-all"
                   >
                     {confirmedReservation.reservationId}
                   </span>
                   <button
                     onClick={() => handleCopyReference(confirmedReservation.reservationId)}
-                    className="p-1 text-[#8ea098] hover:text-[#d4af37] transition-colors rounded"
+                    className="p-1 text-[#8ea098] hover:text-[#d4af37] transition-colors rounded shrink-0"
                     title="Copy Reference Number"
                   >
                     {copiedRef ? (
@@ -322,46 +357,58 @@ export const ReservationSection: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-xs">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="min-w-0">
                   <span className="text-[#8ea098] block mb-0.5">Guest Name</span>
-                  <span className="font-semibold text-[#f6f3ed]">{confirmedReservation.name}</span>
+                  <span className="font-semibold text-[#f6f3ed] break-words">{confirmedReservation.name}</span>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <span className="text-[#8ea098] block mb-0.5">Contact Phone</span>
-                  <span className="font-semibold text-[#f6f3ed]">
+                  <span className="font-semibold text-[#f6f3ed] break-all">
                     +91 {confirmedReservation.phone}
                   </span>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <span className="text-[#8ea098] block mb-0.5">Reservation Date</span>
                   <span className="font-semibold text-[#f6f3ed]">
                     {formatDateDisplay(confirmedReservation.date)}
                   </span>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <span className="text-[#8ea098] block mb-0.5">Preferred Time</span>
                   <span className="font-semibold text-[#d4af37]">
                     {formatTime12h(confirmedReservation.time)}
                   </span>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <span className="text-[#8ea098] block mb-0.5">Party Size</span>
                   <span className="font-semibold text-[#f6f3ed]">
                     {confirmedReservation.guests}{' '}
                     {confirmedReservation.guests === 1 ? 'Guest' : 'Guests'}
                   </span>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <span className="text-[#8ea098] block mb-0.5">Booking Status</span>
                   <span className="font-bold text-amber-400">ENQUIRY PENDING</span>
                 </div>
+                {confirmedReservation.occasion && (
+                  <div className="min-w-0 sm:col-span-2">
+                    <span className="text-[#8ea098] block mb-0.5">Occasion</span>
+                    <span className="font-semibold text-amber-200">🎉 {confirmedReservation.occasion}</span>
+                  </div>
+                )}
+                {confirmedReservation.customerEmail && (
+                  <div className="min-w-0 sm:col-span-2">
+                    <span className="text-[#8ea098] block mb-0.5">Email</span>
+                    <span className="font-semibold text-[#f6f3ed] break-all block">{confirmedReservation.customerEmail}</span>
+                  </div>
+                )}
               </div>
 
               {confirmedReservation.specialRequest && (
                 <div className="pt-3 border-t border-[#224d3b] text-xs">
                   <span className="text-[#8ea098] block mb-0.5">Special Instructions:</span>
-                  <p className="italic text-[#f6f3ed] bg-[#15382a]/40 p-2.5 rounded-lg border border-[#224d3b]/50">
+                  <p className="italic text-[#f6f3ed] bg-[#15382a]/40 p-2.5 rounded-lg border border-[#224d3b]/50 break-words">
                     "{confirmedReservation.specialRequest}"
                   </p>
                 </div>
@@ -369,12 +416,30 @@ export const ReservationSection: React.FC = () => {
 
               <div className="pt-2 border-t border-[#224d3b]/50 text-[11px] text-[#8ea098] flex items-center space-x-1.5">
                 <MapPin className="w-3.5 h-3.5 text-[#d4af37] flex-shrink-0" />
-                <span>{RESTAURANT_CONFIG.address.short}</span>
+                <span className="break-words">{RESTAURANT_CONFIG.address.short}</span>
               </div>
             </div>
 
             {/* Direct Confirmation Action Buttons */}
             <div className="max-w-lg mx-auto space-y-3 pt-2">
+              {/* Online Tracker Access Button */}
+              {onOpenStatusTracker && (
+                <button
+                  type="button"
+                  id="btn-track-reservation-online"
+                  onClick={() =>
+                    onOpenStatusTracker(
+                      confirmedReservation.reservationNumber || confirmedReservation.reservationId,
+                      confirmedReservation.customerPhone || confirmedReservation.phone
+                    )
+                  }
+                  className="w-full py-3 px-4 rounded-xl bg-[#d4af37] hover:bg-[#c49f2e] text-[#091711] font-bold text-xs flex items-center justify-center space-x-2 shadow-lg hover:shadow-[#d4af37]/20 transition-all cursor-pointer"
+                >
+                  <Search className="w-4 h-4 text-[#091711] shrink-0" />
+                  <span className="break-words">Track Reservation Live Status Online</span>
+                </button>
+              )}
+
               <div className="text-center text-xs text-[#c8c0b2] font-medium">
                 Speed up table allocation by notifying our front desk:
               </div>
@@ -388,7 +453,7 @@ export const ReservationSection: React.FC = () => {
                   rel="noopener noreferrer"
                   className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center space-x-2 shadow-lg hover:shadow-emerald-900/40 transition-all active:scale-98"
                 >
-                  <MessageCircle className="w-4 h-4 fill-white" />
+                  <MessageCircle className="w-4 h-4 fill-white shrink-0" />
                   <span>Confirm on WhatsApp</span>
                 </a>
 
@@ -398,7 +463,7 @@ export const ReservationSection: React.FC = () => {
                   href={RESTAURANT_CONFIG.telLink}
                   className="w-full py-3 px-4 rounded-xl bg-[#15382a] hover:bg-[#1c4b38] border border-[#224d3b] hover:border-[#d4af37] text-[#f6f3ed] font-bold text-xs flex items-center justify-center space-x-2 shadow transition-all active:scale-98"
                 >
-                  <Phone className="w-4 h-4 text-[#d4af37]" />
+                  <Phone className="w-4 h-4 text-[#d4af37] shrink-0" />
                   <span>Call {RESTAURANT_CONFIG.phoneDisplay}</span>
                 </a>
               </div>
@@ -408,9 +473,9 @@ export const ReservationSection: React.FC = () => {
                 <button
                   id="btn-book-another-table"
                   onClick={handleResetForm}
-                  className="inline-flex items-center space-x-1.5 text-xs text-[#8ea098] hover:text-[#d4af37] transition-colors py-1 px-3 rounded-lg"
+                  className="inline-flex items-center space-x-1.5 text-xs text-[#8ea098] hover:text-[#d4af37] transition-colors py-1 px-3 rounded-lg cursor-pointer"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
+                  <RotateCcw className="w-3.5 h-3.5 shrink-0" />
                   <span>Submit Another Table Booking</span>
                 </button>
               </div>
@@ -418,101 +483,158 @@ export const ReservationSection: React.FC = () => {
           </div>
         ) : (
           /* State 2: Booking Form */
-          <form
-            id="book-table-form"
-            onSubmit={handleSubmitReservation}
-            noValidate
-            className="bg-[#0f271d] border border-[#224d3b] rounded-2xl p-6 sm:p-9 shadow-xl space-y-6"
-          >
-            {submitError && (
-              <div
-                id="reservation-submit-error"
-                className="p-3.5 rounded-lg bg-red-950/70 border border-red-500/80 text-red-200 text-xs flex items-start space-x-2 animate-shake"
-              >
-                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                <span>{submitError}</span>
+          <div className="space-y-4">
+            {/* Quick Status Lookup Banner for Returning Customers */}
+            {onOpenStatusTracker && (
+              <div className="p-3.5 rounded-xl bg-[#0e241b] border border-[#224d3b] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center space-x-2 text-[#c8c0b2]">
+                  <Search className="w-4 h-4 text-[#d4af37] shrink-0" />
+                  <span className="break-words">
+                    Already submitted a table reservation request? Check status in real time.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onOpenStatusTracker()}
+                  className="px-3 py-1.5 rounded-lg bg-[#15382a] hover:bg-[#1f4e3b] border border-[#224d3b] hover:border-[#d4af37] text-[#d4af37] font-semibold text-xs transition-colors shrink-0 flex items-center justify-center space-x-1.5 cursor-pointer"
+                >
+                  <span>Track My Reservation</span>
+                  <span className="text-xs">→</span>
+                </button>
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
-              {/* Field 1: Name */}
-              <div>
-                <label
-                  htmlFor="reservation-name"
-                  className="block text-xs font-semibold text-[#c8c0b2] mb-1.5"
+            <form
+              id="book-table-form"
+              onSubmit={handleSubmitReservation}
+              noValidate
+              className="bg-[#0f271d] border border-[#224d3b] rounded-2xl p-4 sm:p-7 md:p-9 shadow-xl space-y-5 sm:space-y-6"
+            >
+              {submitError && (
+                <div
+                  id="reservation-submit-error"
+                  className="p-3.5 rounded-lg bg-red-950/70 border border-red-500/80 text-red-200 text-xs flex items-start space-x-2 animate-shake"
                 >
-                  Guest Name <span className="text-red-400">*</span>
-                </label>
-                <input
-                  id="reservation-name"
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
-                  }}
-                  placeholder="e.g. Aamir Khan"
-                  className={`w-full bg-[#15382a]/70 border rounded-lg px-3.5 py-2.5 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none transition-colors ${
-                    errors.name
-                      ? 'border-red-500 focus:border-red-400'
-                      : 'border-[#224d3b] focus:border-[#d4af37]'
-                  }`}
-                />
-                {errors.name && (
-                  <p className="mt-1 text-[11px] text-red-400 flex items-center space-x-1">
-                    <AlertCircle className="w-3 h-3 flex-shrink-0" />
-                    <span>{errors.name}</span>
-                  </p>
-                )}
-              </div>
+                  <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                  <span className="break-words">{submitError}</span>
+                </div>
+              )}
 
-              {/* Field 2: Mobile Number (Indian) */}
-              <div>
-                <label
-                  htmlFor="reservation-phone"
-                  className="block text-xs font-semibold text-[#c8c0b2] mb-1.5"
-                >
-                  Mobile Number (India) <span className="text-red-400">*</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-[#d4af37] font-bold select-none">
-                    +91
-                  </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                {/* Field 1: Name */}
+                <div>
+                  <label
+                    htmlFor="reservation-name"
+                    className="block text-xs font-semibold text-[#c8c0b2] mb-1.5"
+                  >
+                    Guest Name <span className="text-red-400">*</span>
+                  </label>
                   <input
-                    id="reservation-phone"
-                    type="tel"
+                    id="reservation-name"
+                    type="text"
                     required
-                    maxLength={10}
-                    value={phone}
+                    value={name}
                     onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '');
-                      setPhone(val);
-                      if (errors.phone) setErrors((prev) => ({ ...prev, phone: undefined }));
+                      setName(e.target.value);
+                      if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
                     }}
-                    placeholder="98765 43210"
-                    className={`w-full bg-[#15382a]/70 border rounded-lg pl-12 pr-3.5 py-2.5 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none transition-colors ${
-                      errors.phone
+                    placeholder="e.g. Aamir Khan"
+                    className={`w-full bg-[#15382a]/70 border rounded-lg px-3.5 py-2.5 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none transition-colors ${
+                      errors.name
                         ? 'border-red-500 focus:border-red-400'
                         : 'border-[#224d3b] focus:border-[#d4af37]'
                     }`}
                   />
+                  {errors.name && (
+                    <p className="mt-1 text-[11px] text-red-400 flex items-center space-x-1">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      <span>{errors.name}</span>
+                    </p>
+                  )}
                 </div>
-                {errors.phone ? (
-                  <p className="mt-1 text-[11px] text-red-400 flex items-center space-x-1">
-                    <AlertCircle className="w-3 h-3 flex-shrink-0" />
-                    <span>{errors.phone}</span>
-                  </p>
-                ) : (
-                  <p className="mt-1 text-[10px] text-[#8ea098]">
-                    10-digit Indian mobile number for table confirmation.
-                  </p>
-                )}
-              </div>
+
+                {/* Field 2: Mobile Number (Indian) */}
+                <div>
+                  <label
+                    htmlFor="reservation-phone"
+                    className="block text-xs font-semibold text-[#c8c0b2] mb-1.5"
+                  >
+                    Mobile Number (India) <span className="text-red-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-[#d4af37] font-bold select-none">
+                      +91
+                    </span>
+                    <input
+                      id="reservation-phone"
+                      type="tel"
+                      required
+                      maxLength={10}
+                      value={phone}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        setPhone(val);
+                        if (errors.phone) setErrors((prev) => ({ ...prev, phone: undefined }));
+                      }}
+                      placeholder="98765 43210"
+                      className={`w-full bg-[#15382a]/70 border rounded-lg pl-12 pr-3.5 py-2.5 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none transition-colors ${
+                        errors.phone
+                          ? 'border-red-500 focus:border-red-400'
+                          : 'border-[#224d3b] focus:border-[#d4af37]'
+                      }`}
+                    />
+                  </div>
+                  {errors.phone ? (
+                    <p className="mt-1 text-[11px] text-red-400 flex items-center space-x-1">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      <span>{errors.phone}</span>
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-[10px] text-[#8ea098]">
+                      10-digit Indian mobile number for table confirmation.
+                    </p>
+                  )}
+                </div>
+
+                {/* Field 2B: Email (Optional) */}
+                <div>
+                  <label
+                    htmlFor="reservation-email"
+                    className="block text-xs font-semibold text-[#c8c0b2] mb-1.5 flex items-center space-x-1"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-[#d4af37]" />
+                    <span>Email Address (Optional)</span>
+                  </label>
+                  <input
+                    id="reservation-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                    }}
+                    placeholder="e.g. guest@example.com"
+                    className={`w-full bg-[#15382a]/70 border rounded-lg px-3.5 py-2.5 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none transition-colors ${
+                      errors.email
+                        ? 'border-red-500 focus:border-red-400'
+                        : 'border-[#224d3b] focus:border-[#d4af37]'
+                    }`}
+                  />
+                  {errors.email ? (
+                    <p className="mt-1 text-[11px] text-red-400 flex items-center space-x-1">
+                      <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                      <span>{errors.email}</span>
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-[10px] text-[#8ea098]">
+                      For electronic confirmation and status updates.
+                    </p>
+                  )}
+                </div>
 
               {/* Field 3: Date (Cannot be in the past) */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                   <label
                     htmlFor="reservation-date"
                     className="text-xs font-semibold text-[#c8c0b2] flex items-center space-x-1"
@@ -627,9 +749,9 @@ export const ReservationSection: React.FC = () => {
                   <span className="text-red-400">*</span>
                 </label>
 
-                <div className="flex items-center space-x-3">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3">
                   {/* Stepper Buttons */}
-                  <div className="flex items-center border border-[#224d3b] rounded-lg bg-[#15382a] overflow-hidden">
+                  <div className="flex items-center border border-[#224d3b] rounded-lg bg-[#15382a] overflow-hidden shrink-0">
                     <button
                       type="button"
                       onClick={() => setGuests((g) => Math.max(1, g - 1))}
@@ -662,7 +784,7 @@ export const ReservationSection: React.FC = () => {
                   </div>
 
                   {/* Quick Preset Buttons */}
-                  <div className="flex items-center space-x-1 overflow-x-auto">
+                  <div className="flex items-center space-x-1 overflow-x-auto py-0.5 max-w-full">
                     {[2, 4, 6, 8, 10].map((num) => (
                       <button
                         key={num}
@@ -671,7 +793,7 @@ export const ReservationSection: React.FC = () => {
                           setGuests(num);
                           if (errors.guests) setErrors((prev) => ({ ...prev, guests: undefined }));
                         }}
-                        className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-all ${
+                        className={`px-2.5 py-1.5 rounded text-xs font-semibold transition-all shrink-0 ${
                           guests === num
                             ? 'bg-[#d4af37] text-[#091711] shadow'
                             : 'bg-[#15382a] text-[#c8c0b2] hover:text-[#f6f3ed]'
@@ -691,8 +813,34 @@ export const ReservationSection: React.FC = () => {
                 )}
               </div>
 
-              {/* Field 6: Special Request */}
+              {/* Field 6: Occasion (Optional) */}
               <div>
+                <label
+                  htmlFor="reservation-occasion"
+                  className="block text-xs font-semibold text-[#c8c0b2] mb-1.5 flex items-center space-x-1"
+                >
+                  <span>Dining Occasion (Optional)</span>
+                </label>
+                <select
+                  id="reservation-occasion"
+                  value={occasion}
+                  onChange={(e) => setOccasion(e.target.value)}
+                  className="w-full bg-[#15382a] border border-[#224d3b] rounded-lg px-3.5 py-2.5 text-sm text-[#f6f3ed] focus:outline-none focus:border-[#d4af37] transition-colors"
+                >
+                  <option value="">Casual Dining / Regular</option>
+                  <option value="Birthday">Birthday Celebration 🎂</option>
+                  <option value="Anniversary">Anniversary Celebration 🥂</option>
+                  <option value="Family">Family Dinner 👨‍👩‍👧‍👦</option>
+                  <option value="Business">Business / Team Meal 💼</option>
+                  <option value="Other">Other Special Occasion ✨</option>
+                </select>
+                <p className="mt-1 text-[10px] text-[#8ea098]">
+                  Helps our team prepare special greetings or seating arrangements.
+                </p>
+              </div>
+
+              {/* Field 7: Special Request */}
+              <div className="sm:col-span-2">
                 <label
                   htmlFor="reservation-special-request"
                   className="block text-xs font-semibold text-[#c8c0b2] mb-1.5"
@@ -704,11 +852,11 @@ export const ReservationSection: React.FC = () => {
                   type="text"
                   value={specialRequest}
                   onChange={(e) => setSpecialRequest(e.target.value)}
-                  placeholder="e.g. Birthday celebration, high chair, booth seating..."
+                  placeholder="e.g. Birthday celebration, high chair, quiet booth seating, spicy preferences..."
                   className="w-full bg-[#15382a]/70 border border-[#224d3b] rounded-lg px-3.5 py-2.5 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none focus:border-[#d4af37] transition-colors"
                 />
                 <p className="mt-1 text-[10px] text-[#8ea098]">
-                  We will do our best to accommodate seating preferences.
+                  We will do our best to accommodate dietary and seating preferences.
                 </p>
               </div>
             </div>
@@ -745,8 +893,9 @@ export const ReservationSection: React.FC = () => {
               </button>
             </div>
           </form>
-        )}
-      </div>
-    </section>
-  );
+        </div>
+      )}
+    </div>
+  </section>
+);
 };

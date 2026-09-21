@@ -12,6 +12,7 @@ import { CartDrawer } from './components/CartDrawer';
 import { CheckoutModal } from './components/CheckoutModal';
 import { OrderConfirmationModal } from './components/OrderConfirmationModal';
 import { ReservationSection } from './components/ReservationSection';
+import { ReservationStatusView } from './components/ReservationStatusView';
 import { LocationSection } from './components/LocationSection';
 import { ReviewsSection } from './components/ReviewsSection';
 import { Footer } from './components/Footer';
@@ -26,6 +27,11 @@ function RestaurantApp() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
+  const [trackerState, setTrackerState] = useState<{
+    isOpen: boolean;
+    reservationId?: string;
+    phone?: string;
+  }>({ isOpen: false });
 
   // Real-time Menu Data from Firestore
   const [categories, setCategories] = useState<Category[]>([]);
@@ -77,6 +83,7 @@ function RestaurantApp() {
       <Header
         onOpenMenu={() => scrollToSection('menu-section')}
         onOpenReserve={() => scrollToSection('reservation-section')}
+        onOpenTracker={() => setTrackerState({ isOpen: true })}
         onOpenAdmin={() => setIsAdminOpen(true)}
         onNavigateHome={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         activeView={isAdminOpen ? 'admin' : 'home'}
@@ -99,7 +106,11 @@ function RestaurantApp() {
         />
 
         {/* Table Reservation Module with Real Firestore Sync */}
-        <ReservationSection />
+        <ReservationSection
+          onOpenStatusTracker={(resNum, phone) =>
+            setTrackerState({ isOpen: true, reservationId: resNum, phone })
+          }
+        />
 
         {/* Restaurant Highlights & Customer Reviews */}
         <ReviewsSection />
@@ -156,6 +167,27 @@ function RestaurantApp() {
             }
           }}
         />
+      )}
+
+      {/* Customer Reservation Status Tracker Modal */}
+      {trackerState.isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-3 sm:p-4 backdrop-blur-md overflow-y-auto">
+          <div className="w-full max-w-2xl my-auto">
+            <ReservationStatusView
+              initialReservationId={trackerState.reservationId}
+              initialPhone={trackerState.phone}
+              onClose={() => setTrackerState({ isOpen: false })}
+              onBookNew={() => {
+                setTrackerState({ isOpen: false });
+                scrollToSection('reservation-section');
+              }}
+              onNavigateHome={() => {
+                setTrackerState({ isOpen: false });
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

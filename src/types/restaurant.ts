@@ -88,19 +88,122 @@ export interface Order {
   whatsappMessage?: string;
 }
 
-export type ReservationStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'COMPLETED';
+export type ReservationStatus =
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'SEATED'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'REJECTED'
+  | 'NO_SHOW';
+
+export type ReservationOccasion = 'Birthday' | 'Anniversary' | 'Family' | 'Business' | 'Other';
 
 export interface Reservation {
   id: string;
+  reservationNumber: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
+  email?: string;
+  bookingDate: string;
+  bookingTime: string;
+  guestCount: number;
+  occasion?: ReservationOccasion | string;
+  specialRequest?: string;
+
+  status: ReservationStatus;
+
+  assignedTableId?: string;
+  assignedTableNumber?: string;
+  assignedTableLocation?: string;
+
+  managerNote?: string;
+  rejectionReason?: string;
+
+  createdAt: string;
+  updatedAt?: string;
+  confirmedAt?: string;
+  seatedAt?: string;
+  completedAt?: string;
+  cancelledAt?: string;
+
+  notificationStatus?: 'PENDING' | 'SENT' | 'FAILED';
+  lastNotificationAt?: string;
+
+  // Compatibility aliases with existing UI code
   reservationId: string;
   name: string;
   phone: string;
   date: string;
   time: string;
   guests: number;
-  specialRequest?: string;
-  status: ReservationStatus;
+}
+
+export type TableStatus = 'AVAILABLE' | 'MAINTENANCE' | 'RESERVED';
+
+export interface RestaurantTable {
+  tableId: string;
+  tableNumber: string; // e.g. T01, T02
+  capacity: number; // e.g. 2, 4, 6, 8, 10
+  location: string; // e.g. 'Indoor AC Main Hall', 'Window Bay', 'Family Booth', 'Patio'
+  status: TableStatus;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type ReservationEventType =
+  | 'BOOKING_RECEIVED'
+  | 'MANAGER_VIEWED'
+  | 'TABLE_ASSIGNED'
+  | 'RESERVATION_CONFIRMED'
+  | 'RESERVATION_REJECTED'
+  | 'RESERVATION_CANCELLED'
+  | 'TABLE_CHANGED'
+  | 'NOTIFICATION_DISPATCHED'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'SEATED'
+  | 'COMPLETED'
+  | 'STATUS_CHANGE';
+
+export interface ReservationEvent {
+  eventId: string;
+  reservationId: string;
+  eventType: ReservationEventType;
+  actorType?: 'CUSTOMER' | 'MANAGER' | 'SYSTEM';
+  actorId?: string;
+  actor?: string;
+  message?: string;
+  description?: string;
+  metadata?: Record<string, any>;
   createdAt: string;
+}
+
+export type NotificationChannel = 'WHATSAPP' | 'SMS' | 'EMAIL';
+export type NotificationMessageType =
+  | 'BOOKING_RECEIVED'
+  | 'BOOKING_CONFIRMED'
+  | 'BOOKING_REJECTED'
+  | 'BOOKING_CANCELLED'
+  | 'TABLE_CHANGED'
+  | 'CONFIRMATION'
+  | 'REJECTION';
+
+export interface NotificationLog {
+  notificationId: string;
+  reservationId: string;
+  channel: NotificationChannel;
+  recipient?: string;
+  customerPhone?: string;
+  messageType?: NotificationMessageType;
+  templateType?: string;
+  messagePayload?: string;
+  status: 'PENDING' | 'SENT' | 'FAILED';
+  createdAt: string;
+  sentAt?: string;
+  errorMessage?: string;
 }
 
 export interface Review {

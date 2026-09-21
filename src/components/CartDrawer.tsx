@@ -50,12 +50,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onProceedToCheckout }) =
       onClick={() => setIsCartOpen(false)}
     >
       <div
-        className="absolute inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10"
+        className="absolute inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10"
         onClick={(e) => e.stopPropagation()}
       >
         <div
           id="cart-drawer-container"
-          className="w-screen max-w-md bg-[#091711] border-l border-[#224d3b] text-[#f6f3ed] shadow-2xl flex flex-col justify-between"
+          className="w-full sm:w-screen max-w-md bg-[#091711] border-l border-[#224d3b] text-[#f6f3ed] shadow-2xl flex flex-col justify-between h-full"
         >
           {/* Header */}
           <div className="p-4 sm:p-5 border-b border-[#224d3b] flex items-center justify-between bg-[#0f271d]">
@@ -295,11 +295,11 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onProceedToCheckout }) =
 
                 {/* Delivery fee row if delivery */}
                 {orderType === 'delivery' && (
-                  <div className="flex justify-between">
-                    <span>Delivery Charge</span>
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="shrink-0">Delivery Charge</span>
                     {deliveryFee === 0 ? (
-                      <span className="text-emerald-400 font-semibold uppercase text-[11px]">
-                        FREE (Order over ₹{RESTAURANT_CONFIG.pricing.freeDeliveryThreshold})
+                      <span className="text-emerald-400 font-semibold uppercase text-[10px] sm:text-[11px] text-right">
+                        FREE (Over ₹{RESTAURANT_CONFIG.pricing.freeDeliveryThreshold})
                       </span>
                     ) : (
                       <span className="font-semibold text-[#f6f3ed]">₹{deliveryFee}</span>

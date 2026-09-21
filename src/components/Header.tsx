@@ -12,6 +12,7 @@ interface HeaderProps {
   onOpenReserve: () => void;
   onOpenAdmin: () => void;
   onNavigateHome: () => void;
+  onOpenTracker?: () => void;
   activeView: 'home' | 'menu' | 'reserve' | 'admin' | 'order-status';
 }
 
@@ -20,6 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenReserve,
   onOpenAdmin,
   onNavigateHome,
+  onOpenTracker,
   activeView,
 }) => {
   const { itemCount, setIsCartOpen } = useCart();
@@ -126,6 +128,15 @@ export const Header: React.FC<HeaderProps> = ({
             >
               Reserve Table
             </button>
+            {onOpenTracker && (
+              <button
+                id="nav-link-tracker"
+                onClick={onOpenTracker}
+                className="text-[#c8c0b2] hover:text-[#d4af37] transition-colors"
+              >
+                Track Booking
+              </button>
+            )}
             <a
               id="nav-link-location"
               href="#location-section"
@@ -232,6 +243,18 @@ export const Header: React.FC<HeaderProps> = ({
             >
               Reserve a Table
             </button>
+            {onOpenTracker && (
+              <button
+                id="mobile-nav-link-tracker"
+                onClick={() => {
+                  onOpenTracker();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full text-left py-2 px-3 rounded text-sm text-[#d4af37] hover:bg-[#15382a]"
+              >
+                Track Live Reservation
+              </button>
+            )}
             <a
               id="mobile-nav-link-location"
               href="#location-section"

@@ -166,28 +166,28 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   return (
     <div
       id="checkout-modal-overlay"
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm p-3 sm:p-6 flex items-center justify-center transition-opacity"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm p-2 sm:p-4 flex items-center justify-center transition-opacity"
       onClick={onClose}
     >
       <div
         id="checkout-modal-card"
-        className="bg-[#091711] border border-[#224d3b] rounded-2xl max-w-2xl w-full text-[#f6f3ed] shadow-2xl overflow-hidden my-6"
+        className="bg-[#091711] border border-[#224d3b] rounded-2xl max-w-2xl w-full text-[#f6f3ed] shadow-2xl flex flex-col max-h-[94vh] my-auto overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="p-4 sm:p-5 border-b border-[#224d3b] bg-[#0f271d] flex items-center justify-between">
-          <div className="flex items-center space-x-2.5">
+        <div className="p-4 sm:p-5 border-b border-[#224d3b] bg-[#0f271d] flex items-center justify-between shrink-0">
+          <div className="flex items-center space-x-2.5 min-w-0 mr-2">
             <button
               type="button"
               id="btn-back-from-checkout"
               onClick={onClose}
-              className="p-1 rounded-md text-[#c8c0b2] hover:text-[#f6f3ed] hover:bg-[#15382a] mr-1"
+              className="p-1.5 rounded-md text-[#c8c0b2] hover:text-[#f6f3ed] hover:bg-[#15382a] shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
-            <div>
-              <h3 className="font-serif text-xl font-bold text-[#f6f3ed]">Customer Checkout</h3>
-              <p className="text-xs text-[#d4af37]">
+            <div className="min-w-0">
+              <h3 className="font-serif text-lg sm:text-xl font-bold text-[#f6f3ed] truncate">Customer Checkout</h3>
+              <p className="text-[11px] sm:text-xs text-[#d4af37] truncate">
                 {RESTAURANT_CONFIG.name} • {RESTAURANT_CONFIG.address.short}
               </p>
             </div>
@@ -196,17 +196,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             type="button"
             id="btn-close-checkout-modal"
             onClick={onClose}
-            className="p-1.5 rounded-lg bg-[#15382a] text-[#c8c0b2] hover:text-[#f6f3ed]"
+            className="p-1.5 rounded-lg bg-[#15382a] text-[#c8c0b2] hover:text-[#f6f3ed] shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmitOrder} className="p-5 sm:p-7 space-y-5">
+        <form onSubmit={handleSubmitOrder} className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 min-h-0">
           {errorMessage && (
             <div className="p-3.5 rounded-lg bg-red-950/70 border border-red-500/80 text-red-200 text-xs flex items-start space-x-2.5">
               <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
+              <span className="break-words">{errorMessage}</span>
             </div>
           )}
 
@@ -236,7 +236,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   Mobile Number <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-[#d4af37] font-bold">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-[#d4af37] font-bold select-none">
                     +91
                   </span>
                   <input
@@ -259,47 +259,47 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <h4 className="text-xs font-semibold tracking-wider uppercase text-[#d4af37]">
               2. Delivery or Pickup
             </h4>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               <button
                 type="button"
                 id="checkout-type-delivery"
                 onClick={() => setOrderType('delivery')}
-                className={`py-3 px-3 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center gap-1.5 transition-all ${
+                className={`py-2.5 px-2 sm:py-3 sm:px-3 rounded-xl border text-[11px] sm:text-xs font-semibold flex flex-col items-center justify-center gap-1 sm:gap-1.5 transition-all text-center ${
                   orderType === 'delivery'
                     ? 'bg-[#15382a] border-[#d4af37] text-[#d4af37] ring-1 ring-[#d4af37] shadow'
                     : 'bg-[#07130e] border-[#224d3b] text-[#c8c0b2] hover:border-[#d4af37]/40'
                 }`}
               >
-                <Bike className="w-4 h-4" />
-                <span>Doorstep Delivery</span>
+                <Bike className="w-4 h-4 shrink-0" />
+                <span>Delivery</span>
               </button>
 
               <button
                 type="button"
                 id="checkout-type-pickup"
                 onClick={() => setOrderType('pickup')}
-                className={`py-3 px-3 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center gap-1.5 transition-all ${
+                className={`py-2.5 px-2 sm:py-3 sm:px-3 rounded-xl border text-[11px] sm:text-xs font-semibold flex flex-col items-center justify-center gap-1 sm:gap-1.5 transition-all text-center ${
                   orderType === 'pickup' || orderType === 'takeaway'
                     ? 'bg-[#15382a] border-[#d4af37] text-[#d4af37] ring-1 ring-[#d4af37] shadow'
                     : 'bg-[#07130e] border-[#224d3b] text-[#c8c0b2] hover:border-[#d4af37]/40'
                 }`}
               >
-                <PackageCheck className="w-4 h-4" />
-                <span>Store Pickup</span>
+                <PackageCheck className="w-4 h-4 shrink-0" />
+                <span>Pickup</span>
               </button>
 
               <button
                 type="button"
                 id="checkout-type-dinein"
                 onClick={() => setOrderType('dine_in')}
-                className={`py-3 px-3 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center gap-1.5 transition-all ${
+                className={`py-2.5 px-2 sm:py-3 sm:px-3 rounded-xl border text-[11px] sm:text-xs font-semibold flex flex-col items-center justify-center gap-1 sm:gap-1.5 transition-all text-center ${
                   orderType === 'dine_in'
                     ? 'bg-[#15382a] border-[#d4af37] text-[#d4af37] ring-1 ring-[#d4af37] shadow'
                     : 'bg-[#07130e] border-[#224d3b] text-[#c8c0b2] hover:border-[#d4af37]/40'
                 }`}
               >
-                <Utensils className="w-4 h-4" />
-                <span>Dine-In Table</span>
+                <Utensils className="w-4 h-4 shrink-0" />
+                <span>Dine-In</span>
               </button>
             </div>
 
@@ -321,12 +321,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     className="w-full bg-[#15382a]/70 border border-[#224d3b] rounded-xl pl-9 pr-3.5 py-2 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none focus:border-[#d4af37]"
                   />
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-[#8ea098]">
-                  <span>Serving Mumbra, Kausa, Shilphata, and surrounding areas.</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-[#8ea098] gap-1">
+                  <span className="break-words">Serving Mumbra, Kausa, Shilphata, and surrounding areas.</span>
                   {subtotal >= RESTAURANT_CONFIG.pricing.freeDeliveryThreshold ? (
-                    <span className="text-emerald-400 font-semibold">Free Delivery Qualified!</span>
+                    <span className="text-emerald-400 font-semibold shrink-0">Free Delivery Qualified!</span>
                   ) : (
-                    <span>Free delivery on orders above ₹{RESTAURANT_CONFIG.pricing.freeDeliveryThreshold}</span>
+                    <span className="shrink-0">Free delivery over ₹{RESTAURANT_CONFIG.pricing.freeDeliveryThreshold}</span>
                   )}
                 </div>
               </div>
@@ -413,32 +413,36 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <h4 className="text-xs font-semibold tracking-wider uppercase text-[#d4af37]">
               3. Order Summary ({cart.length} item{cart.length === 1 ? '' : 's'})
             </h4>
-            <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 divide-y divide-[#224d3b]/40 text-xs">
+            <div className="max-h-40 overflow-y-auto space-y-2 pr-1 divide-y divide-[#224d3b]/40 text-xs">
               {cart.map((item) => (
-                <div key={item.id} className="pt-1.5 first:pt-0 flex justify-between items-center">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-[#f6f3ed]">
+                <div key={item.id} className="pt-2 first:pt-0 flex justify-between items-start gap-2">
+                  <div className="flex items-start space-x-2 min-w-0 flex-1">
+                    <span className="font-bold text-[#f6f3ed] shrink-0 mt-0.5">
                       {item.quantity}×
                     </span>
-                    <span className="text-[#c8c0b2]">
-                      {item.name}{' '}
-                      {item.portion !== 'single' && (
-                        <span className="text-[#8ea098]">[{item.portion.toUpperCase()}]</span>
-                      )}
-                      {item.dietaryChoice && (
-                        <span
-                          className={`ml-1 text-[9px] font-bold px-1 py-0.2 rounded ${
-                            item.dietaryChoice === 'veg'
-                              ? 'text-emerald-400 bg-emerald-950/60'
-                              : 'text-red-400 bg-red-950/60'
-                          }`}
-                        >
-                          {item.dietaryChoice.toUpperCase()}
-                        </span>
-                      )}
-                    </span>
+                    <div className="min-w-0">
+                      <span className="text-[#c8c0b2] break-words font-medium">
+                        {item.name}
+                      </span>
+                      <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                        {item.portion !== 'single' && (
+                          <span className="text-[#8ea098] text-[10px]">[{item.portion.toUpperCase()}]</span>
+                        )}
+                        {item.dietaryChoice && (
+                          <span
+                            className={`text-[9px] font-bold px-1 py-0.2 rounded ${
+                              item.dietaryChoice === 'veg'
+                                ? 'text-emerald-400 bg-emerald-950/60'
+                                : 'text-red-400 bg-red-950/60'
+                            }`}
+                          >
+                            {item.dietaryChoice.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <span className="font-serif font-bold text-[#d4af37]">
+                  <span className="font-serif font-bold text-[#d4af37] shrink-0 ml-1">
                     ₹{item.price * item.quantity}
                   </span>
                 </div>
@@ -461,11 +465,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               )}
               {orderType === 'delivery' && (
-                <div className="flex justify-between">
-                  <span>Delivery Charge:</span>
+                <div className="flex justify-between items-center gap-2">
+                  <span className="shrink-0">Delivery Charge:</span>
                   {deliveryFee === 0 ? (
-                    <span className="text-emerald-400 font-semibold uppercase text-[10px]">
-                      FREE
+                    <span className="text-emerald-400 font-semibold uppercase text-[10px] text-right">
+                      FREE (Over ₹{RESTAURANT_CONFIG.pricing.freeDeliveryThreshold})
                     </span>
                   ) : (
                     <span>₹{deliveryFee}</span>
@@ -479,26 +483,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             </div>
 
             {/* Demo Payment Notice */}
-            <div className="p-2.5 bg-[#15382a]/50 rounded-lg border border-[#d4af37]/30 text-xs text-[#f6f3ed] flex items-center justify-between">
-              <div>
-                <span className="font-bold text-[#d4af37] block">Payment Notice:</span>
-                <span className="text-[#c8c0b2]">
+            <div className="p-2.5 bg-[#15382a]/50 rounded-lg border border-[#d4af37]/30 text-xs text-[#f6f3ed] flex items-start justify-between gap-2.5">
+              <div className="min-w-0">
+                <span className="font-bold text-[#d4af37] block mb-0.5">Payment Notice:</span>
+                <p className="text-[#c8c0b2] text-[11px] leading-relaxed break-words">
                   {orderType === 'delivery'
                     ? 'Cash on Delivery / UPI at doorstep (No online card charged)'
                     : 'Pay at Counter / Table upon arrival (Cash / UPI / Card)'}
-                </span>
+                </p>
               </div>
-              <ShieldCheck className="w-5 h-5 text-[#d4af37] flex-shrink-0 ml-2" />
+              <ShieldCheck className="w-5 h-5 text-[#d4af37] flex-shrink-0 mt-0.5" />
             </div>
           </div>
 
           {/* Form Actions */}
-          <div className="flex items-center justify-end space-x-3 pt-1">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2.5 pt-1">
             <button
               type="button"
               id="btn-cancel-checkout"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-[#224d3b] text-xs font-semibold text-[#c8c0b2] hover:text-[#f6f3ed] hover:bg-[#15382a]"
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-[#224d3b] text-xs font-semibold text-[#c8c0b2] hover:text-[#f6f3ed] hover:bg-[#15382a] text-center"
             >
               Cancel
             </button>
@@ -506,7 +510,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               type="submit"
               id="btn-submit-order"
               disabled={isSubmitting}
-              className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f1d779] to-[#c59b27] hover:brightness-110 text-[#091711] font-bold text-xs tracking-wider uppercase transition-all shadow-lg flex items-center space-x-2 disabled:opacity-50 active:scale-[0.98]"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f1d779] to-[#c59b27] hover:brightness-110 text-[#091711] font-bold text-xs tracking-wider uppercase transition-all shadow-lg flex items-center justify-center space-x-2 disabled:opacity-50 active:scale-[0.98]"
             >
               {isSubmitting ? (
                 <>
@@ -515,7 +519,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
                   <span>Confirm Order (₹{total})</span>
                 </>
               )}

@@ -21,6 +21,21 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Restaurant Tables collection
+    match /restaurant_tables/{tableId} {
+      allow read, write: if true;
+    }
+
+    // Reservation Activity Events Timeline
+    match /reservation_events/{eventId} {
+      allow read, write: if true;
+    }
+
+    // Notification Logs
+    match /notification_logs/{notifId} {
+      allow read, write: if true;
+    }
+
     // Customer Reviews collection
     match /reviews/{reviewId} {
       allow read, write: if true;

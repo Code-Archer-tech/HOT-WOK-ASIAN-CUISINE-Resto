@@ -13,14 +13,30 @@ import {
   limit,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Category, MenuItem, Order, OrderStatus, Reservation, ReservationStatus, Review, ContactMessage } from '../types/restaurant';
+import {
+  Category,
+  MenuItem,
+  Order,
+  OrderStatus,
+  Reservation,
+  ReservationStatus,
+  Review,
+  ContactMessage,
+  RestaurantTable,
+  ReservationEvent,
+  NotificationLog,
+} from '../types/restaurant';
 import { INITIAL_CATEGORIES, INITIAL_MENU_ITEMS, INITIAL_REVIEWS } from '../lib/seedData';
+import { DEFAULT_TABLES, RESERVATION_SLOT_DURATION_MINUTES, cleanIndianMobile } from '../config/restaurantConfig';
 import { setCachedMenuItems } from '../server/apiHandler';
 
 const CATEGORIES_COL = 'categories';
 const MENU_ITEMS_COL = 'menu_items';
 const ORDERS_COL = 'orders';
 const RESERVATIONS_COL = 'reservations';
+const TABLES_COL = 'restaurant_tables';
+const RESERVATION_EVENTS_COL = 'reservation_events';
+const NOTIFICATION_LOGS_COL = 'notification_logs';
 const REVIEWS_COL = 'reviews';
 const CONTACT_MESSAGES_COL = 'contact_messages';
 
@@ -209,14 +225,240 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus): P
   });
 }
 
+// ==========================================
+// Tables Management
+// ==========================================
+
+export async function ensureTablesSeeded(): Promise<RestaurantTable[]> {
+  try {
+    const tableRef = collection(db, TABLES_COL);
+    const snap = await getDocs(tableRef);
+    if (snap.empty) {
+      console.log('Seeding initial Hot Wok dining tables (T01 - T10)...');
+      for (const t of DEFAULT_TABLES) {
+        await setDoc(doc(db, TABLES_COL, t.tableId), t);
+      }
+      return DEFAULT_TABLES;
+    } else {
+      const tables: RestaurantTable[] = [];
+      snap.forEach((d) => tables.push(d.data() as RestaurantTable));
+      return tables.sort((a, b) => a.tableNumber.localeCompare(b.tableNumber));
+    }
+  } catch (err) {
+    console.error('Error ensuring tables seeded:', err);
+    return DEFAULT_TABLES;
+  }
+}
+
+export function subscribeTables(callback: (tables: RestaurantTable[]) => void) {
+  try {
+    const q = query(collection(db, TABLES_COL));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        if (snapshot.empty) {
+          // Trigger seeding if collection has no docs
+          ensureTablesSeeded().then(callback);
+          return;
+        }
+        const tables: RestaurantTable[] = [];
+        snapshot.forEach((d) => tables.push(d.data() as RestaurantTable));
+        tables.sort((a, b) => a.tableNumber.localeCompare(b.tableNumber));
+        callback(tables);
+      },
+      (err) => {
+        console.warn('Tables snapshot listener warning:', err);
+        callback(DEFAULT_TABLES);
+      }
+    );
+  } catch (e) {
+    console.error(e);
+    callback(DEFAULT_TABLES);
+    return () => {};
+  }
+}
+
+export async function getTables(): Promise<RestaurantTable[]> {
+  try {
+    const snap = await getDocs(collection(db, TABLES_COL));
+    if (snap.empty) {
+      return await ensureTablesSeeded();
+    }
+    const tables: RestaurantTable[] = [];
+    snap.forEach((d) => tables.push(d.data() as RestaurantTable));
+    return tables.sort((a, b) => a.tableNumber.localeCompare(b.tableNumber));
+  } catch (err) {
+    console.error('Error fetching tables:', err);
+    return DEFAULT_TABLES;
+  }
+}
+
+export async function saveTable(table: RestaurantTable): Promise<void> {
+  await setDoc(doc(db, TABLES_COL, table.tableId), {
+    ...table,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function updateTable(tableId: string, updates: Partial<RestaurantTable>): Promise<void> {
+  await updateDoc(doc(db, TABLES_COL, tableId), {
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function deleteTable(tableId: string): Promise<void> {
+  await deleteDoc(doc(db, TABLES_COL, tableId));
+}
+
+// ==========================================
+// Time & Double-Booking Protection Utilities
+// ==========================================
+
+export function parseTimeToMinutes(timeStr: string): number {
+  if (!timeStr) return 0;
+  // Handle formats like "19:30", "7:30 PM", "07:30"
+  const clean = timeStr.trim();
+  const isPM = /pm/i.test(clean);
+  const isAM = /am/i.test(clean);
+  const match = clean.match(/(\d{1,2}):(\d{2})/);
+  if (!match) return 0;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  if (isPM && hours < 12) hours += 12;
+  if (isAM && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+}
+
+export function isTimeSlotOverlapping(
+  timeA: string,
+  durA: number,
+  timeB: string,
+  durB: number
+): boolean {
+  const startA = parseTimeToMinutes(timeA);
+  const endA = startA + durA;
+  const startB = parseTimeToMinutes(timeB);
+  const endB = startB + durB;
+  return Math.max(startA, startB) < Math.min(endA, endB);
+}
+
+export function checkTableConflict(
+  tableId: string,
+  bookingDate: string,
+  bookingTime: string,
+  allReservations: Reservation[],
+  durationMinutes: number = RESERVATION_SLOT_DURATION_MINUTES,
+  excludeReservationId?: string
+): { hasConflict: boolean; conflictingReservation?: Reservation } {
+  const activeConfirmed = allReservations.filter((r) => {
+    if (r.id === excludeReservationId) return false;
+    if (r.status !== 'CONFIRMED') return false;
+    const resDate = r.bookingDate || r.date;
+    if (resDate !== bookingDate) return false;
+    return r.assignedTableId === tableId;
+  });
+
+  for (const res of activeConfirmed) {
+    const resTime = res.bookingTime || res.time;
+    if (isTimeSlotOverlapping(bookingTime, durationMinutes, resTime, durationMinutes)) {
+      return { hasConflict: true, conflictingReservation: res };
+    }
+  }
+
+  return { hasConflict: false };
+}
+
+// ==========================================
 // Reservations
+// ==========================================
+
 export async function saveReservationToFirestore(res: Reservation): Promise<void> {
   await setDoc(doc(db, RESERVATIONS_COL, res.id), res);
 }
 
+export async function getReservationById(resId: string): Promise<Reservation | null> {
+  try {
+    const snap = await getDoc(doc(db, RESERVATIONS_COL, resId));
+    if (snap.exists()) {
+      return snap.data() as Reservation;
+    }
+    // Try querying by reservationNumber or reservationId
+    const q1 = query(collection(db, RESERVATIONS_COL), where('reservationNumber', '==', resId.toUpperCase()), limit(1));
+    const s1 = await getDocs(q1);
+    if (!s1.empty) {
+      return s1.docs[0].data() as Reservation;
+    }
+    const q2 = query(collection(db, RESERVATIONS_COL), where('reservationId', '==', resId.toUpperCase()), limit(1));
+    const s2 = await getDocs(q2);
+    if (!s2.empty) {
+      return s2.docs[0].data() as Reservation;
+    }
+    return null;
+  } catch (err) {
+    console.error('Error fetching reservation by ID:', err);
+    return null;
+  }
+}
+
+export async function getReservationByNumberAndPhone(
+  numberOrId: string,
+  phoneInput: string
+): Promise<Reservation | null> {
+  try {
+    const cleanNum = numberOrId.trim().toUpperCase();
+    const cleanPhone = cleanIndianMobile(phoneInput);
+
+    // Try direct document ID lookup first
+    const directDoc = await getDoc(doc(db, RESERVATIONS_COL, cleanNum.toLowerCase()));
+    if (directDoc.exists()) {
+      const data = directDoc.data() as Reservation;
+      const resPhone = cleanIndianMobile(data.customerPhone || data.phone || '');
+      if (resPhone === cleanPhone) {
+        return data;
+      }
+    }
+
+    // Query reservations by reservationNumber
+    const q = query(
+      collection(db, RESERVATIONS_COL),
+      where('reservationNumber', '==', cleanNum),
+      limit(5)
+    );
+    const snap = await getDocs(q);
+    for (const d of snap.docs) {
+      const data = d.data() as Reservation;
+      const resPhone = cleanIndianMobile(data.customerPhone || data.phone || '');
+      if (resPhone === cleanPhone) {
+        return data;
+      }
+    }
+
+    // Also check reservationId alias
+    const q2 = query(
+      collection(db, RESERVATIONS_COL),
+      where('reservationId', '==', cleanNum),
+      limit(5)
+    );
+    const snap2 = await getDocs(q2);
+    for (const d of snap2.docs) {
+      const data = d.data() as Reservation;
+      const resPhone = cleanIndianMobile(data.customerPhone || data.phone || '');
+      if (resPhone === cleanPhone) {
+        return data;
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.error('Error looking up customer reservation:', err);
+    return null;
+  }
+}
+
 export function subscribeReservations(callback: (res: Reservation[]) => void) {
   try {
-    const q = query(collection(db, RESERVATIONS_COL), orderBy('createdAt', 'desc'), limit(100));
+    const q = query(collection(db, RESERVATIONS_COL), orderBy('createdAt', 'desc'), limit(150));
     return onSnapshot(
       q,
       (snapshot) => {
@@ -236,8 +478,141 @@ export function subscribeReservations(callback: (res: Reservation[]) => void) {
   }
 }
 
+export async function updateReservation(resId: string, updates: Partial<Reservation>): Promise<void> {
+  await updateDoc(doc(db, RESERVATIONS_COL, resId), {
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
 export async function updateReservationStatus(resId: string, status: ReservationStatus): Promise<void> {
-  await updateDoc(doc(db, RESERVATIONS_COL, resId), { status });
+  const updates: Partial<Reservation> = {
+    status,
+    updatedAt: new Date().toISOString(),
+  };
+  if (status === 'CONFIRMED') {
+    updates.confirmedAt = new Date().toISOString();
+  } else if (status === 'CANCELLED') {
+    updates.cancelledAt = new Date().toISOString();
+  }
+  await updateDoc(doc(db, RESERVATIONS_COL, resId), updates);
+}
+
+// ==========================================
+// Reservation Activity Timeline & Audit Logs
+// ==========================================
+
+export async function logReservationEvent(
+  event: Omit<ReservationEvent, 'eventId' | 'createdAt'>
+): Promise<ReservationEvent> {
+  const eventId = `evt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const fullEvent: ReservationEvent = {
+    ...event,
+    eventId,
+    createdAt: new Date().toISOString(),
+  };
+  try {
+    await setDoc(doc(db, RESERVATION_EVENTS_COL, eventId), fullEvent);
+  } catch (err) {
+    console.warn('Failed to persist reservation event:', err);
+  }
+  return fullEvent;
+}
+
+export function subscribeReservationEvents(
+  reservationId: string,
+  callback: (events: ReservationEvent[]) => void
+) {
+  try {
+    const q = query(
+      collection(db, RESERVATION_EVENTS_COL),
+      where('reservationId', '==', reservationId)
+    );
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const events: ReservationEvent[] = [];
+        snapshot.forEach((d) => events.push(d.data() as ReservationEvent));
+        events.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        callback(events);
+      },
+      (err) => {
+        console.warn('Reservation events listener error:', err);
+        callback([]);
+      }
+    );
+  } catch (e) {
+    console.error(e);
+    callback([]);
+    return () => {};
+  }
+}
+
+export async function getReservationEvents(reservationId: string): Promise<ReservationEvent[]> {
+  try {
+    const q = query(
+      collection(db, RESERVATION_EVENTS_COL),
+      where('reservationId', '==', reservationId)
+    );
+    const snap = await getDocs(q);
+    const events: ReservationEvent[] = [];
+    snap.forEach((d) => events.push(d.data() as ReservationEvent));
+    events.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    return events;
+  } catch (err) {
+    console.error('Error fetching reservation events:', err);
+    return [];
+  }
+}
+
+// ==========================================
+// Customer Notification Logs
+// ==========================================
+
+export async function logNotification(
+  notif: Omit<NotificationLog, 'notificationId' | 'createdAt'>
+): Promise<NotificationLog> {
+  const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const fullNotif: NotificationLog = {
+    ...notif,
+    notificationId,
+    createdAt: new Date().toISOString(),
+  };
+  try {
+    await setDoc(doc(db, NOTIFICATION_LOGS_COL, notificationId), fullNotif);
+  } catch (err) {
+    console.warn('Failed to persist notification log:', err);
+  }
+  return fullNotif;
+}
+
+export function subscribeNotificationLogs(
+  reservationId: string,
+  callback: (logs: NotificationLog[]) => void
+) {
+  try {
+    const q = query(
+      collection(db, NOTIFICATION_LOGS_COL),
+      where('reservationId', '==', reservationId)
+    );
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const logs: NotificationLog[] = [];
+        snapshot.forEach((d) => logs.push(d.data() as NotificationLog));
+        logs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        callback(logs);
+      },
+      (err) => {
+        console.warn('Notification logs listener error:', err);
+        callback([]);
+      }
+    );
+  } catch (e) {
+    console.error(e);
+    callback([]);
+    return () => {};
+  }
 }
 
 // Reviews

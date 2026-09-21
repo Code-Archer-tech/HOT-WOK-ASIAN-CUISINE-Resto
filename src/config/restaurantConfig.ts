@@ -6,6 +6,8 @@
  * Reads environment variables with safe defaults.
  */
 
+import { RestaurantTable } from '../types/restaurant';
+
 // Format phone digits safely (strips spaces, dashes, parentheses)
 const cleanNumber = (num: string): string => num.replace(/\D/g, '');
 
@@ -335,6 +337,169 @@ Special Request: ${res.specialRequest?.trim() || 'None'}
 Status: Table Enquiry Request (Pending Confirmation)
 
 Please check your seating availability and confirm our reservation. Thank you!`;
+}
+
+export const DEFAULT_TABLES: RestaurantTable[] = [
+  { tableId: 't01', tableNumber: 'T01', capacity: 2, location: 'Indoor AC Main Hall', status: 'AVAILABLE' },
+  { tableId: 't02', tableNumber: 'T02', capacity: 2, location: 'Window Bay', status: 'AVAILABLE' },
+  { tableId: 't03', tableNumber: 'T03', capacity: 4, location: 'Indoor AC Main Hall', status: 'AVAILABLE' },
+  { tableId: 't04', tableNumber: 'T04', capacity: 4, location: 'Window Bay', status: 'AVAILABLE' },
+  { tableId: 't05', tableNumber: 'T05', capacity: 4, location: 'Family Booth', status: 'AVAILABLE' },
+  { tableId: 't06', tableNumber: 'T06', capacity: 6, location: 'Family Booth', status: 'AVAILABLE' },
+  { tableId: 't07', tableNumber: 'T07', capacity: 6, location: 'Asian Dining Alcove', status: 'AVAILABLE' },
+  { tableId: 't08', tableNumber: 'T08', capacity: 8, location: 'Banquet Round Table', status: 'AVAILABLE' },
+  { tableId: 't09', tableNumber: 'T09', capacity: 8, location: 'Family Long Table', status: 'AVAILABLE' },
+  { tableId: 't10', tableNumber: 'T10', capacity: 10, location: "Imperial Chef's Table", status: 'AVAILABLE' },
+];
+
+export const RESERVATION_SLOT_DURATION_MINUTES = 90;
+
+/**
+ * Generates unique reservation numbers in the format: HW-YYYYMMDD-XXXX
+ * Example: HW-20260921-0001
+ */
+export function generateReservationNumber(dateStr?: string): string {
+  const d = dateStr ? new Date(dateStr) : new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const dateSegment = `${year}${month}${day}`;
+  const randomSuffix = String(Math.floor(1 + Math.random() * 9999)).padStart(4, '0');
+  return `HW-${dateSegment}-${randomSuffix}`;
+}
+
+/**
+ * Customer confirmation WhatsApp message per prompt specification
+ */
+export function generateReservationConfirmedWhatsAppMessage(res: {
+  reservationNumber: string;
+  customerName: string;
+  bookingDate: string;
+  bookingTime: string;
+  guestCount: number;
+  assignedTableNumber?: string;
+}): string {
+  const formattedDate = formatHumanDate(res.bookingDate);
+  const formattedTime = formatTime12h(res.bookingTime);
+  const table = res.assignedTableNumber || 'TBD';
+
+  return `Your table reservation at Hot Wok Asian Cuisine Restaurant has been CONFIRMED.
+
+Reservation ID: ${res.reservationNumber}
+Date: ${formattedDate}
+Time: ${formattedTime}
+Guests: ${res.guestCount}
+Table: ${table}
+
+Please arrive a few minutes before your reservation time.
+
+Hot Wok Asian Cuisine Restaurant
+9987 974 833
+Urban Empire, Mittal Ground, Mumbra - 400612`;
+}
+
+/**
+ * Customer rejection WhatsApp message
+ */
+export function generateReservationRejectedWhatsAppMessage(res: {
+  reservationNumber: string;
+  customerName: string;
+  bookingDate: string;
+  bookingTime: string;
+  rejectionReason?: string;
+}): string {
+  const formattedDate = formatHumanDate(res.bookingDate);
+  const formattedTime = formatTime12h(res.bookingTime);
+  const reason = res.rejectionReason || 'Tables are fully committed for this dining slot';
+
+  return `Hello ${res.customerName},
+Regarding your table reservation request at Hot Wok Asian Cuisine Restaurant:
+
+Reservation ID: ${res.reservationNumber}
+Date: ${formattedDate}
+Time: ${formattedTime}
+
+Status: Unable to Confirm
+Reason: ${reason}
+
+We apologize for the inconvenience. Please consider reserving for another available time or contact our manager directly at 9987 974 833.
+
+Hot Wok Asian Cuisine Restaurant`;
+}
+
+/**
+ * Table change WhatsApp notification message
+ */
+export function generateTableChangedWhatsAppMessage(res: {
+  reservationNumber: string;
+  customerName: string;
+  bookingDate: string;
+  bookingTime: string;
+  previousTable: string;
+  newTable: string;
+}): string {
+  const formattedDate = formatHumanDate(res.bookingDate);
+  const formattedTime = formatTime12h(res.bookingTime);
+
+  return `Hello ${res.customerName},
+Your table assignment has been updated for your upcoming dining at Hot Wok Asian Cuisine Restaurant:
+
+Reservation ID: ${res.reservationNumber}
+Date: ${formattedDate}
+Time: ${formattedTime}
+Previous Table: ${res.previousTable}
+New Table: ${res.newTable}
+
+Please arrive a few minutes before your reservation time.
+
+Hot Wok Asian Cuisine Restaurant
+9987 974 833
+Urban Empire, Mittal Ground, Mumbra - 400612`;
+}
+
+/**
+ * Cancellation WhatsApp notification message
+ */
+export function generateReservationCancelledWhatsAppMessage(res: {
+  reservationNumber: string;
+  customerName: string;
+  bookingDate: string;
+  bookingTime: string;
+}): string {
+  const formattedDate = formatHumanDate(res.bookingDate);
+  const formattedTime = formatTime12h(res.bookingTime);
+
+  return `Hello ${res.customerName},
+Your table reservation (${res.reservationNumber}) for ${formattedDate} at ${formattedTime} has been CANCELLED.
+
+If this was made in error or you wish to rebook, please visit our website or call 9987 974 833.
+
+Hot Wok Asian Cuisine Restaurant`;
+}
+
+/**
+ * Helper to format date into human-readable e.g. "25 September 2026"
+ */
+function formatHumanDate(dateStr: string): string {
+  try {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    return date.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+/**
+ * Creates direct WhatsApp link to customer's personal mobile number
+ */
+export function createCustomerWhatsAppNotificationUrl(customerPhone: string, message: string): string {
+  const cleanPhone = cleanIndianMobile(customerPhone);
+  return `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(message)}`;
 }
 
 /**
