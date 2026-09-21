@@ -23,14 +23,15 @@ const ORDERS_COL = 'orders';
 const RESERVATIONS_COL = 'reservations';
 const REVIEWS_COL = 'reviews';
 
-// Auto-seed Firestore database if empty
+// Auto-seed Firestore database if empty or missing items
 export async function ensureDatabaseSeeded(): Promise<{ categories: Category[]; menuItems: MenuItem[] }> {
   try {
     const menuRef = collection(db, MENU_ITEMS_COL);
     const snap = await getDocs(menuRef);
 
-    if (snap.empty) {
-      console.log('Database empty. Seeding initial categories and menu items to Firestore...');
+    // If database is empty or has only earlier placeholder items, update with the authoritative full menu
+    if (snap.empty || snap.size < 35) {
+      console.log('Syncing authoritative Hot Wok Asian Cuisine menu items to Firestore...');
       // Seed categories
       for (const cat of INITIAL_CATEGORIES) {
         await setDoc(doc(db, CATEGORIES_COL, cat.id), cat);
@@ -63,6 +64,20 @@ export async function ensureDatabaseSeeded(): Promise<{ categories: Category[]; 
     console.warn('Firestore initial read/seed warning (falling back to initial data):', err);
     setCachedMenuItems(INITIAL_MENU_ITEMS);
     return { categories: INITIAL_CATEGORIES, menuItems: INITIAL_MENU_ITEMS };
+  }
+}
+
+export async function reseedCompleteMenu(): Promise<void> {
+  try {
+    for (const cat of INITIAL_CATEGORIES) {
+      await setDoc(doc(db, CATEGORIES_COL, cat.id), cat);
+    }
+    for (const item of INITIAL_MENU_ITEMS) {
+      await setDoc(doc(db, MENU_ITEMS_COL, item.id), item);
+    }
+    setCachedMenuItems(INITIAL_MENU_ITEMS);
+  } catch (err) {
+    console.error('Error reseeding complete menu:', err);
   }
 }
 

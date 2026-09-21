@@ -6,8 +6,10 @@ interface CartContextType {
   orderType: OrderType;
   setOrderType: (type: OrderType) => void;
   addItem: (item: MenuItem, portion?: 'single' | 'half' | 'full') => void;
+  addToCart: (item: MenuItem, portion?: 'single' | 'half' | 'full', quantity?: number) => void;
   removeItem: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, delta: number) => void;
+  getItemQuantity: (itemId: string, portion?: 'single' | 'half' | 'full') => number;
   clearCart: () => void;
   itemCount: number;
   subtotal: number;
@@ -60,7 +62,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [orderType]);
 
-  const addItem = (item: MenuItem, portion: 'single' | 'half' | 'full' = 'single') => {
+  const addToCart = (
+    item: MenuItem,
+    portion: 'single' | 'half' | 'full' = 'single',
+    quantity: number = 1
+  ) => {
     let price = item.price;
     if (portion === 'half' && typeof item.halfPrice === 'number') {
       price = item.halfPrice;
@@ -74,7 +80,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const existing = prev.find((i) => i.id === cartItemId);
       if (existing) {
         return prev.map((i) =>
-          i.id === cartItemId ? { ...i, quantity: i.quantity + 1 } : i
+          i.id === cartItemId ? { ...i, quantity: i.quantity + quantity } : i
         );
       } else {
         return [
@@ -85,7 +91,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: item.name,
             portion,
             price,
-            quantity: 1,
+            quantity,
             isVeg: item.isVeg,
             image: item.image,
             categoryName: item.categoryName,
@@ -93,6 +99,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ];
       }
     });
+  };
+
+  const addItem = (item: MenuItem, portion: 'single' | 'half' | 'full' = 'single') => {
+    addToCart(item, portion, 1);
+  };
+
+  const getItemQuantity = (itemId: string, portion: 'single' | 'half' | 'full' = 'single'): number => {
+    const cartItemId = `${itemId}-${portion}`;
+    const found = cart.find((i) => i.id === cartItemId);
+    return found ? found.quantity : 0;
   };
 
   const removeItem = (cartItemId: string) => {
@@ -130,8 +146,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         orderType,
         setOrderType,
         addItem,
+        addToCart,
         removeItem,
         updateQuantity,
+        getItemQuantity,
         clearCart,
         itemCount,
         subtotal,

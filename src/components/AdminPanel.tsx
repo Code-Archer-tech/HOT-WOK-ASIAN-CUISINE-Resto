@@ -41,6 +41,7 @@ import {
   subscribeReviews,
   updateReviewApproval,
   deleteReview,
+  reseedCompleteMenu,
 } from '../services/dbService';
 
 interface AdminPanelProps {
@@ -745,6 +746,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                       name: '',
                       description: '',
                       categoryId: categories[0]?.id || 'starters',
+                      category: categories[0]?.name || 'Starters',
                       categoryName: categories[0]?.name || 'Starters',
                       isVeg: false,
                       priceType: 'single',
@@ -762,6 +764,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add New Dish</span>
+                </button>
+
+                <button
+                  id="btn-sync-full-menu"
+                  onClick={async () => {
+                    await reseedCompleteMenu();
+                    alert('Menu catalog synchronized successfully with all categories!');
+                  }}
+                  className="w-full sm:w-auto px-3.5 py-2 rounded-lg bg-[#15382a] border border-[#d4af37]/60 text-[#d4af37] font-semibold text-xs flex items-center justify-center space-x-1.5 hover:bg-[#1d4b38] transition"
+                  title="Resync the complete authoritative menu items into Firestore"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Sync Authoritative Catalog</span>
                 </button>
               </div>
 

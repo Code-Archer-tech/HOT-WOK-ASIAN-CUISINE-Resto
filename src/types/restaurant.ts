@@ -12,14 +12,18 @@ export interface Category {
 export interface MenuItem {
   id: string;
   name: string;
-  description: string;
+  category: string;
   categoryId: string;
   categoryName: string;
+  subcategory?: string;
   isVeg: boolean;
   priceType: 'single' | 'portion';
   price: number;
   halfPrice?: number;
   fullPrice?: number;
+  vegPrice?: number;
+  nonVegPrice?: number;
+  description: string;
   image: string;
   isAvailable: boolean;
   isFeatured: boolean;
