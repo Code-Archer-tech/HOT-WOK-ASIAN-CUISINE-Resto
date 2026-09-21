@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
   Search,
   Sparkles,
@@ -797,6 +796,7 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
       {modalItem && (
         <ItemDetailModal
           item={modalItem}
+          allMenuItems={menuItems}
           onClose={() => setModalItem(null)}
         />
       )}
@@ -852,14 +852,10 @@ const MenuGridOrColumns: React.FC<MenuGridOrColumnsProps> = ({
           const isAdded = recentlyAddedId === cartItemId;
 
           return (
-            <motion.div
+            <div
               key={item.id}
               id={`menu-card-${item.id}`}
-              initial={{ opacity: 0, y: 8 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-20px' }}
-              transition={{ duration: 0.25 }}
-              className="bg-gradient-to-br from-[#091b13] via-[#071610] to-[#05110c] border border-[#224d3b] hover:border-[#d4af37]/70 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-lg transition-all duration-300 flex flex-col justify-between group relative overflow-hidden"
+              className="bg-gradient-to-br from-[#091b13] via-[#071610] to-[#05110c] border border-[#224d3b] hover:border-[#d4af37]/70 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-lg transition-all duration-300 flex flex-col justify-between group relative overflow-hidden hover:-translate-y-0.5"
             >
               {/* Subtle gold corner accent on hover */}
               <div className="absolute top-0 right-0 w-12 h-12 bg-gradient-to-bl from-[#d4af37]/10 to-transparent pointer-events-none rounded-tr-2xl" />
@@ -1065,7 +1061,7 @@ const MenuGridOrColumns: React.FC<MenuGridOrColumnsProps> = ({
                   </button>
                 )}
               </div>
-            </motion.div>
+            </div>
           );
         })}
       </div>
@@ -1090,14 +1086,10 @@ const MenuGridOrColumns: React.FC<MenuGridOrColumnsProps> = ({
         const isAdded = recentlyAddedId === cartItemId;
 
         return (
-          <motion.div
+          <div
             key={item.id}
             id={`menu-card-${item.id}`}
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-20px' }}
-            transition={{ duration: 0.25 }}
-            className="bg-gradient-to-b from-[#091b13] to-[#05110c] border border-[#224d3b] hover:border-[#d4af37] rounded-3xl overflow-hidden shadow-xl transition-all duration-300 flex flex-col justify-between group"
+            className="bg-gradient-to-b from-[#091b13] to-[#05110c] border border-[#224d3b] hover:border-[#d4af37] rounded-3xl overflow-hidden shadow-xl transition-all duration-300 flex flex-col justify-between group hover:-translate-y-0.5"
           >
             {/* Top Photo Section */}
             <div
@@ -1270,7 +1262,7 @@ const MenuGridOrColumns: React.FC<MenuGridOrColumnsProps> = ({
                 )}
               </div>
             </div>
-          </motion.div>
+          </div>
         );
       })}
     </div>

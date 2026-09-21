@@ -1,0 +1,108 @@
+{
+  "entities": {
+    "Category": {
+      "title": "Category",
+      "description": "Menu category definition for Hot Wok Asian Cuisine",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique category identifier" },
+        "name": { "type": "string", "description": "Display name of category" },
+        "description": { "type": "string", "description": "Category description" },
+        "icon": { "type": "string", "description": "Lucide icon name" },
+        "sortOrder": { "type": "number", "description": "Visual display sorting order" },
+        "cuisine": { "type": "string", "description": "Pan-Asian cuisine style" }
+      },
+      "required": ["id", "name", "sortOrder"]
+    },
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "Culinary item on the Hot Wok restaurant menu",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique menu dish ID" },
+        "name": { "type": "string", "description": "Dish title" },
+        "description": { "type": "string", "description": "Dish culinary description" },
+        "categoryId": { "type": "string", "description": "Reference to parent category" },
+        "cuisine": { "type": "string", "description": "Cuisine category" },
+        "dietary": { "type": "string", "description": "Dietary classification" },
+        "spiceLevel": { "type": "number", "description": "Spice meter from 0 to 3" },
+        "price": { "type": "number", "description": "Single or base price in INR" },
+        "isAvailable": { "type": "boolean", "description": "In-stock kitchen status" },
+        "isChefSpecial": { "type": "boolean", "description": "Chef recommendation badge" },
+        "isBestseller": { "type": "boolean", "description": "Top-ordered badge" },
+        "sortOrder": { "type": "number", "description": "Order sequence" }
+      },
+      "required": ["id", "name", "categoryId", "price", "isAvailable"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer food order record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Document ID" },
+        "orderNumber": { "type": "string", "description": "Human-readable order number" },
+        "orderType": { "type": "string", "description": "Delivery, dine_in, or pickup" },
+        "status": { "type": "string", "description": "Current kitchen status" },
+        "customerName": { "type": "string", "description": "Customer full name" },
+        "customerPhone": { "type": "string", "description": "Customer mobile phone number" },
+        "subtotal": { "type": "number", "description": "Order subtotal before taxes and fees" },
+        "total": { "type": "number", "description": "Grand total payable in INR" },
+        "createdAt": { "type": "string", "description": "ISO timestamp of order creation" }
+      },
+      "required": ["id", "orderNumber", "orderType", "status", "customerName", "customerPhone", "total"]
+    },
+    "Reservation": {
+      "title": "Reservation",
+      "description": "Table booking record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique reservation ID" },
+        "reservationId": { "type": "string", "description": "Human-readable booking code" },
+        "name": { "type": "string", "description": "Lead guest name" },
+        "phone": { "type": "string", "description": "Lead guest contact" },
+        "date": { "type": "string", "description": "Booking date string" },
+        "time": { "type": "string", "description": "Booking time slot" },
+        "guests": { "type": "number", "description": "Number of diners" },
+        "status": { "type": "string", "description": "PENDING, CONFIRMED, CANCELLED" },
+        "createdAt": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["id", "reservationId", "name", "phone", "date", "time", "guests", "status"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Customer dining review and rating",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Review unique identifier" },
+        "author": { "type": "string", "description": "Reviewer name" },
+        "rating": { "type": "number", "description": "1 to 5 star rating" },
+        "comment": { "type": "string", "description": "Review feedback" },
+        "approved": { "type": "boolean", "description": "Moderation status" },
+        "createdAt": { "type": "string", "description": "ISO date string" }
+      },
+      "required": ["id", "author", "rating", "comment", "approved"]
+    }
+  },
+  "firestore": {
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Collection of food categories"
+    },
+    "/menu_items/{itemId}": {
+      "schema": "MenuItem",
+      "description": "Collection of all Asian dishes and beverages"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Collection of customer dine-in, takeaway, and delivery orders"
+    },
+    "/reservations/{resId}": {
+      "schema": "Reservation",
+      "description": "Collection of dining table reservations"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Collection of customer testimonials"
+    }
+  }
+}

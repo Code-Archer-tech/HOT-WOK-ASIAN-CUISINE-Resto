@@ -1,6 +1,7 @@
 import React from 'react';
 import { Home, Utensils, Calendar, ShoppingBag, Phone } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { RESTAURANT_CONFIG } from '../config/restaurantConfig';
 
 interface MobileNavProps {
   onNavigateHome: () => void;
@@ -79,7 +80,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         {/* Quick Call */}
         <a
           id="mobile-tab-call"
-          href="tel:9987974833"
+          href={RESTAURANT_CONFIG.telLink}
           className="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-[#c8c0b2] hover:text-[#d4af37] transition-colors"
         >
           <Phone className="w-5 h-5 mb-0.5 text-[#d4af37]" />

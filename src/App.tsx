@@ -16,6 +16,7 @@ import { LocationSection } from './components/LocationSection';
 import { ReviewsSection } from './components/ReviewsSection';
 import { Footer } from './components/Footer';
 import { MobileNav } from './components/MobileNav';
+import { FloatingWhatsAppButton } from './components/FloatingWhatsAppButton';
 import { AdminPanel } from './components/AdminPanel';
 import { Category, MenuItem, Order } from './types/restaurant';
 import { subscribeCategories, subscribeMenuItems } from './services/dbService';
@@ -114,6 +115,9 @@ function RestaurantApp() {
         onOpenReserve={() => scrollToSection('reservation-section')}
         onOpenAdmin={() => setIsAdminOpen(true)}
       />
+
+      {/* Floating Production-Grade WhatsApp Button */}
+      <FloatingWhatsAppButton />
 
       {/* Persistent Mobile Bottom Navigation */}
       <MobileNav

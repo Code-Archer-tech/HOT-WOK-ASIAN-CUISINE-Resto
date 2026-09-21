@@ -1,5 +1,10 @@
 import React from 'react';
 import { UtensilsCrossed, Phone, MapPin, Clock, MessageCircle, Shield, Heart } from 'lucide-react';
+import {
+  RESTAURANT_CONFIG,
+  RESTAURANT_WHATSAPP_NUMBER,
+  createWhatsAppInquiryUrl,
+} from '../config/restaurantConfig';
 
 interface FooterProps {
   onNavigateHome: () => void;
@@ -113,8 +118,8 @@ export const Footer: React.FC<FooterProps> = ({
               </div>
               <div className="flex items-center space-x-2">
                 <Phone className="w-4 h-4 text-[#d4af37] flex-shrink-0" />
-                <a href="tel:9987974833" className="hover:text-[#d4af37] font-semibold text-[#f6f3ed]">
-                  +91 99879 74833
+                <a href={RESTAURANT_CONFIG.telLink} className="hover:text-[#d4af37] font-semibold text-[#f6f3ed]">
+                  {RESTAURANT_CONFIG.phoneDisplay}
                 </a>
               </div>
               <div className="flex items-center space-x-2">
@@ -123,13 +128,13 @@ export const Footer: React.FC<FooterProps> = ({
               </div>
               <div className="pt-2">
                 <a
-                  href="https://wa.me/919987974833"
+                  href={createWhatsAppInquiryUrl()}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-lg bg-[#15382a] text-[#d4af37] border border-[#224d3b] hover:border-[#d4af37] text-xs font-semibold transition-colors"
+                  className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-lg bg-emerald-700/80 hover:bg-emerald-600 text-white border border-emerald-500/40 text-xs font-semibold transition-all shadow"
                 >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  <span>WhatsApp Direct</span>
+                  <MessageCircle className="w-3.5 h-3.5 fill-white" />
+                  <span>WhatsApp: +{RESTAURANT_WHATSAPP_NUMBER}</span>
                 </a>
               </div>
             </div>

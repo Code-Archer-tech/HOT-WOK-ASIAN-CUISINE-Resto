@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { UtensilsCrossed, ShoppingBag, Phone, Clock, MapPin, Menu, X, Shield } from 'lucide-react';
+import { UtensilsCrossed, ShoppingBag, Phone, Clock, MapPin, Menu, X, Shield, MessageCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import {
+  RESTAURANT_CONFIG,
+  RESTAURANT_WHATSAPP_NUMBER,
+  createWhatsAppUrl,
+} from '../config/restaurantConfig';
 
 interface HeaderProps {
   onOpenMenu: () => void;
@@ -48,11 +53,11 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="text-[#d4af37] font-medium tracking-wide">Cuisines: Chinese • Korean • Malaysian • Thai</span>
             <a
               id="header-phone-link"
-              href="tel:9987974833"
+              href={RESTAURANT_CONFIG.telLink}
               className="inline-flex items-center space-x-1.5 text-[#e8e4dc] hover:text-[#d4af37] transition-colors font-medium ml-3"
             >
               <Phone className="w-3.5 h-3.5 text-[#d4af37]" />
-              <span>99879 74833</span>
+              <span>{RESTAURANT_CONFIG.phoneDisplay}</span>
             </a>
           </div>
         </div>
@@ -141,15 +146,27 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </nav>
 
-          {/* Right Action Controls: Cart & Call */}
-          <div className="flex items-center space-x-3 sm:space-x-4">
+          {/* Right Action Controls: WhatsApp, Call, Cart */}
+          <div className="flex items-center space-x-2 sm:space-x-3">
+            <a
+              id="btn-header-whatsapp"
+              href={createWhatsAppUrl(`Hello ${RESTAURANT_CONFIG.name}, I would like to place an order / inquire.`)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/90 hover:bg-emerald-600 text-xs font-bold text-white shadow transition-all active:scale-95"
+              title={`Order on WhatsApp: +${RESTAURANT_WHATSAPP_NUMBER}`}
+            >
+              <MessageCircle className="w-3.5 h-3.5 fill-white" />
+              <span>WhatsApp</span>
+            </a>
+
             <a
               id="btn-call-direct"
-              href="tel:9987974833"
-              className="hidden lg:inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-md border border-[#224d3b] bg-[#15382a]/50 text-xs font-semibold text-[#f6f3ed] hover:border-[#d4af37] hover:text-[#d4af37] transition-all"
+              href={RESTAURANT_CONFIG.telLink}
+              className="hidden lg:inline-flex items-center space-x-2 px-3 py-1.5 rounded-lg border border-[#224d3b] bg-[#15382a]/50 text-xs font-semibold text-[#f6f3ed] hover:border-[#d4af37] hover:text-[#d4af37] transition-all"
             >
               <Phone className="w-3.5 h-3.5 text-[#d4af37]" />
-              <span>Call 99879 74833</span>
+              <span>Call {RESTAURANT_CONFIG.phoneDisplay}</span>
             </a>
 
             {/* Cart Button */}
@@ -221,8 +238,21 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => setMobileMenuOpen(false)}
               className="block py-2 px-3 rounded text-sm text-[#f6f3ed] hover:bg-[#15382a] hover:text-[#d4af37]"
             >
-              Location & Timings
+              Location & Contact
             </a>
+
+            {/* Mobile WhatsApp direct action */}
+            <a
+              id="mobile-nav-whatsapp"
+              href={createWhatsAppUrl(`Hello ${RESTAURANT_CONFIG.name}, I would like to place an order.`)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center space-x-2 shadow"
+            >
+              <MessageCircle className="w-4 h-4 fill-white" />
+              <span>Order via WhatsApp (+{RESTAURANT_WHATSAPP_NUMBER})</span>
+            </a>
+
             <button
               id="mobile-nav-link-admin"
               onClick={() => {
@@ -235,9 +265,9 @@ export const Header: React.FC<HeaderProps> = ({
               <span>Admin Management</span>
             </button>
             <div className="pt-2 border-t border-[#224d3b]/50 flex items-center justify-between text-xs text-[#c8c0b2]">
-              <a href="tel:9987974833" className="flex items-center space-x-1.5 text-[#d4af37] font-semibold">
+              <a href={RESTAURANT_CONFIG.telLink} className="flex items-center space-x-1.5 text-[#d4af37] font-semibold">
                 <Phone className="w-3.5 h-3.5" />
-                <span>Call 99879 74833</span>
+                <span>Call {RESTAURANT_CONFIG.phoneDisplay}</span>
               </a>
               <span className="text-[11px] text-[#8ea098]">Kausar Baug, Mumbra</span>
             </div>

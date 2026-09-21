@@ -23,6 +23,7 @@ export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss(), expressApiPlugin()],
     resolve: {
+      dedupe: ['react', 'react-dom'],
       alias: {
         '@': path.resolve(__dirname, '.'),
       },

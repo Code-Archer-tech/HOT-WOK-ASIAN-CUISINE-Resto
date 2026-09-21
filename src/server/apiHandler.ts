@@ -1,5 +1,11 @@
 import { INITIAL_MENU_ITEMS, INITIAL_CATEGORIES } from '../lib/seedData';
 import { MenuItem, Order, OrderItem, OrderType, Reservation } from '../types/restaurant';
+import {
+  RESTAURANT_CONFIG,
+  RESTAURANT_WHATSAPP_NUMBER,
+  createWhatsAppUrl,
+  generateWhatsAppOrderMessage,
+} from '../config/restaurantConfig';
 
 // In-memory or database cache of menu items
 let cachedMenuItems: MenuItem[] = [...INITIAL_MENU_ITEMS];
@@ -18,9 +24,11 @@ export interface CalculateOrderRequest {
   items: Array<{
     itemId: string;
     portion: 'single' | 'half' | 'full';
+    dietaryChoice?: 'veg' | 'non-veg';
     quantity: number;
   }>;
   orderType: OrderType;
+  includePackaging?: boolean;
 }
 
 export interface CalculateOrderResult {
@@ -30,6 +38,7 @@ export interface CalculateOrderResult {
   subtotal: number;
   tax: number;
   packagingCharge: number;
+  deliveryFee: number;
   total: number;
 }
 
@@ -42,6 +51,7 @@ export function calculateOrderServer(req: CalculateOrderRequest): CalculateOrder
       subtotal: 0,
       tax: 0,
       packagingCharge: 0,
+      deliveryFee: 0,
       total: 0,
     };
   }
@@ -63,6 +73,7 @@ export function calculateOrderServer(req: CalculateOrderRequest): CalculateOrder
         subtotal: 0,
         tax: 0,
         packagingCharge: 0,
+        deliveryFee: 0,
         total: 0,
       };
     }
@@ -75,12 +86,18 @@ export function calculateOrderServer(req: CalculateOrderRequest): CalculateOrder
         subtotal: 0,
         tax: 0,
         packagingCharge: 0,
+        deliveryFee: 0,
         total: 0,
       };
     }
 
     let unitPrice = menuItem.price;
-    if (itemReq.portion === 'half' && typeof menuItem.halfPrice === 'number') {
+    // Check dietary choice pricing if item has specific veg/non-veg pricing
+    if (itemReq.dietaryChoice === 'veg' && typeof menuItem.vegPrice === 'number') {
+      unitPrice = menuItem.vegPrice;
+    } else if (itemReq.dietaryChoice === 'non-veg' && typeof menuItem.nonVegPrice === 'number') {
+      unitPrice = menuItem.nonVegPrice;
+    } else if (itemReq.portion === 'half' && typeof menuItem.halfPrice === 'number') {
       unitPrice = menuItem.halfPrice;
     } else if (itemReq.portion === 'full' && typeof menuItem.fullPrice === 'number') {
       unitPrice = menuItem.fullPrice;
@@ -93,6 +110,7 @@ export function calculateOrderServer(req: CalculateOrderRequest): CalculateOrder
       itemId: menuItem.id,
       name: menuItem.name,
       portion: itemReq.portion,
+      dietaryChoice: itemReq.dietaryChoice,
       unitPrice,
       quantity: itemReq.quantity,
       totalPrice: itemTotal,
@@ -107,15 +125,31 @@ export function calculateOrderServer(req: CalculateOrderRequest): CalculateOrder
       subtotal: 0,
       tax: 0,
       packagingCharge: 0,
+      deliveryFee: 0,
       total: 0,
     };
   }
 
   // 5% Restaurant GST
-  const tax = Math.round(subtotal * 0.05 * 100) / 100;
-  // ₹25 packaging for takeaway, ₹0 for dine-in
-  const packagingCharge = req.orderType === 'takeaway' ? 25 : 0;
-  const total = Math.round((subtotal + tax + packagingCharge) * 100) / 100;
+  const tax = Math.round(subtotal * RESTAURANT_CONFIG.pricing.taxRate * 100) / 100;
+
+  // Packaging charge: applicable for takeaway/pickup/delivery unless explicitly opted out
+  const isTakeoutOrDelivery = ['takeaway', 'pickup', 'delivery'].includes(req.orderType);
+  const packagingCharge =
+    isTakeoutOrDelivery && req.includePackaging !== false
+      ? RESTAURANT_CONFIG.pricing.defaultPackagingFee
+      : 0;
+
+  // Delivery fee: applicable only for delivery; free if subtotal exceeds threshold
+  let deliveryFee = 0;
+  if (req.orderType === 'delivery') {
+    deliveryFee =
+      subtotal >= RESTAURANT_CONFIG.pricing.freeDeliveryThreshold
+        ? 0
+        : RESTAURANT_CONFIG.pricing.defaultDeliveryFee;
+  }
+
+  const total = Math.round((subtotal + tax + packagingCharge + deliveryFee) * 100) / 100;
 
   return {
     valid: true,
@@ -123,6 +157,7 @@ export function calculateOrderServer(req: CalculateOrderRequest): CalculateOrder
     subtotal,
     tax,
     packagingCharge,
+    deliveryFee,
     total,
   };
 }
@@ -135,50 +170,32 @@ export function generateOrderNumber(): string {
 
 export function generateReservationId(): string {
   const randomNum = Math.floor(10000 + Math.random() * 90000);
-  return `HWR-${randomNum}`;
+  return `HW-RES-${randomNum}`;
 }
 
 export function generateWhatsAppMessage(order: Order): string {
-  const lines: string[] = [
-    `*HOT WOK ASIAN CUISINE*`,
-    `📍 Urban Empire, Kausar Baug, Mumbra`,
-    `--------------------------------`,
-    `*Order Number:* ${order.orderNumber}`,
-    `*Customer:* ${order.customerName}`,
-    `*Mobile:* ${order.customerPhone}`,
-    `*Order Type:* ${order.orderType === 'dine_in' ? 'Dine-in' : 'Takeaway'}${
-      order.tableNumber ? ` (Table #${order.tableNumber})` : ''
-    }`,
-    `--------------------------------`,
-    `*Items Ordered:*`,
-  ];
-
-  order.items.forEach((item, index) => {
-    const portionLabel = item.portion === 'single' ? '' : ` (${item.portion.toUpperCase()})`;
-    lines.push(`${index + 1}. ${item.name}${portionLabel} x ${item.quantity} = ₹${item.totalPrice}`);
+  return generateWhatsAppOrderMessage({
+    orderNumber: order.orderNumber,
+    items: order.items.map((i) => ({
+      name: i.name,
+      portion: i.portion,
+      dietaryChoice: i.dietaryChoice,
+      quantity: i.quantity,
+      totalPrice: i.totalPrice,
+    })),
+    subtotal: order.subtotal,
+    total: order.total,
+    orderType: order.orderType,
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
+    deliveryAddress: order.deliveryAddress,
+    tableNumber: order.tableNumber,
+    specialInstructions: order.specialInstructions,
   });
-
-  lines.push(`--------------------------------`);
-  lines.push(`Subtotal: ₹${order.subtotal}`);
-  lines.push(`GST (5%): ₹${order.tax}`);
-  if (order.packagingCharge > 0) {
-    lines.push(`Packaging Charge: ₹${order.packagingCharge}`);
-  }
-  lines.push(`*Total Amount: ₹${order.total}*`);
-  lines.push(`*Payment Status:* Pay at Restaurant`);
-
-  if (order.specialInstructions && order.specialInstructions.trim()) {
-    lines.push(`--------------------------------`);
-    lines.push(`*Special Instructions:* ${order.specialInstructions.trim()}`);
-  }
-
-  lines.push(`--------------------------------`);
-  lines.push(`Thank you for choosing Hot Wok Asian Cuisine!`);
-
-  return lines.join('\n');
 }
 
 export function getWhatsAppUrl(order: Order): string {
   const message = generateWhatsAppMessage(order);
-  return `https://wa.me/919987974833?text=${encodeURIComponent(message)}`;
+  return createWhatsAppUrl(message);
 }
+

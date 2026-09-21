@@ -13,7 +13,7 @@ import {
   limit,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { Category, MenuItem, Order, OrderStatus, Reservation, ReservationStatus, Review } from '../types/restaurant';
+import { Category, MenuItem, Order, OrderStatus, Reservation, ReservationStatus, Review, ContactMessage } from '../types/restaurant';
 import { INITIAL_CATEGORIES, INITIAL_MENU_ITEMS, INITIAL_REVIEWS } from '../lib/seedData';
 import { setCachedMenuItems } from '../server/apiHandler';
 
@@ -22,6 +22,7 @@ const MENU_ITEMS_COL = 'menu_items';
 const ORDERS_COL = 'orders';
 const RESERVATIONS_COL = 'reservations';
 const REVIEWS_COL = 'reviews';
+const CONTACT_MESSAGES_COL = 'contact_messages';
 
 // Auto-seed Firestore database if empty or missing items
 export async function ensureDatabaseSeeded(): Promise<{ categories: Category[]; menuItems: MenuItem[] }> {
@@ -281,3 +282,9 @@ export async function updateReviewApproval(reviewId: string, approved: boolean):
 export async function deleteReview(reviewId: string): Promise<void> {
   await deleteDoc(doc(db, REVIEWS_COL, reviewId));
 }
+
+// Contact messages & enquiries
+export async function saveContactMessageToFirestore(message: ContactMessage): Promise<void> {
+  await setDoc(doc(db, CONTACT_MESSAGES_COL, message.id), message);
+}
+

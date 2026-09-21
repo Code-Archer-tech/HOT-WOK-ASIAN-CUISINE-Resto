@@ -1,8 +1,28 @@
 import React, { useState } from 'react';
-import { X, ArrowLeft, CheckCircle2, AlertCircle, ShoppingBag, Utensils, MessageCircle } from 'lucide-react';
+import {
+  X,
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+  ShoppingBag,
+  Utensils,
+  Bike,
+  PackageCheck,
+  MapPin,
+  FileText,
+  ShieldCheck,
+  CheckSquare,
+  Square,
+} from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { Order, OrderType } from '../types/restaurant';
 import { saveOrderToFirestore } from '../services/dbService';
+import {
+  RESTAURANT_CONFIG,
+  RESTAURANT_WHATSAPP_NUMBER,
+  createWhatsAppUrl,
+  generateWhatsAppOrderMessage,
+} from '../config/restaurantConfig';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -15,11 +35,24 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onClose,
   onOrderSuccess,
 }) => {
-  const { cart, orderType, setOrderType, subtotal, tax, packagingCharge, total, clearCart } = useCart();
+  const {
+    cart,
+    orderType,
+    setOrderType,
+    includePackaging,
+    setIncludePackaging,
+    subtotal,
+    tax,
+    packagingCharge,
+    deliveryFee,
+    total,
+    clearCart,
+  } = useCart();
 
   // Form fields
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [tableNumber, setTableNumber] = useState('');
   const [specialInstructions, setSpecialInstructions] = useState('');
 
@@ -29,45 +62,58 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   if (!isOpen) return null;
 
+  const isTakeoutOrDelivery = ['delivery', 'pickup', 'takeaway'].includes(orderType);
+
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    // Client preliminary checks
-    if (!customerName.trim() || customerName.trim().length < 2) {
-      setErrorMessage('Please enter a valid customer name (at least 2 characters).');
+    // 1. Validate Customer Name
+    const trimmedName = customerName.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      setErrorMessage('Please enter your full name (minimum 2 characters).');
       return;
     }
 
+    // 2. Validate Mobile Number (10 digits)
     const cleanPhone = customerPhone.replace(/\D/g, '');
     if (cleanPhone.length < 10) {
       setErrorMessage('Please enter a valid 10-digit mobile number.');
       return;
     }
 
-    if (orderType === 'dine_in' && !tableNumber.trim()) {
-      // Table number is optional or can default to counter
+    // 3. Validate Delivery Address when Delivery is selected
+    if (orderType === 'delivery') {
+      const trimmedAddress = deliveryAddress.trim();
+      if (!trimmedAddress || trimmedAddress.length < 8) {
+        setErrorMessage('Please enter your complete delivery address (building, flat/house number, area, and landmark).');
+        return;
+      }
     }
 
+    // 4. Cart Check
     if (cart.length === 0) {
-      setErrorMessage('Your cart is empty. Please add items before placing an order.');
+      setErrorMessage('Your cart is currently empty. Please add items to checkout.');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Call server-side API to authoritative calculate and validate order
+      // Call server-side API to authoritatively calculate and validate order
       const payload = {
-        customerName: customerName.trim(),
+        customerName: trimmedName,
         customerPhone: cleanPhone,
         orderType,
-        tableNumber: tableNumber.trim() || undefined,
+        deliveryAddress: orderType === 'delivery' ? deliveryAddress.trim() : undefined,
+        tableNumber: orderType === 'dine_in' ? tableNumber.trim() || undefined : undefined,
         specialInstructions: specialInstructions.trim() || undefined,
+        includePackaging,
         items: cart.map((i) => ({
           itemId: i.itemId,
           portion: i.portion,
           quantity: i.quantity,
+          dietaryChoice: i.dietaryChoice,
         })),
       };
 
@@ -84,16 +130,31 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       }
 
       const createdOrder: Order = data.order;
+      const orderWhatsappMsg = createdOrder.whatsappMessage || generateWhatsAppOrderMessage(createdOrder);
+      const targetWhatsappUrl = data.whatsappUrl || createWhatsAppUrl(orderWhatsappMsg);
 
       // Save order into Firestore for persistent tracking and admin management
       try {
-        await saveOrderToFirestore(createdOrder);
+        await saveOrderToFirestore({
+          ...createdOrder,
+          whatsappMessage: orderWhatsappMsg,
+        });
       } catch (dbErr) {
         console.warn('Firestore direct write sync warning:', dbErr);
       }
 
+      // Open WhatsApp with this prefilled message (desktop opens tab, mobile launches app)
+      try {
+        window.open(targetWhatsappUrl, '_blank', 'noopener,noreferrer');
+      } catch (popupErr) {
+        console.warn('Browser prevented direct window.open popup:', popupErr);
+      }
+
       clearCart();
-      onOrderSuccess(createdOrder);
+      onOrderSuccess({
+        ...createdOrder,
+        whatsappMessage: orderWhatsappMsg,
+      });
     } catch (err: any) {
       console.error('Order creation error:', err);
       setErrorMessage(err.message || 'Could not place order. Please check your connection and try again.');
@@ -103,23 +164,36 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   return (
-    <div id="checkout-modal-overlay" className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm p-4 sm:p-6 flex items-center justify-center">
-      <div className="bg-[#091711] border border-[#224d3b] rounded-2xl max-w-2xl w-full text-[#f6f3ed] shadow-2xl overflow-hidden animate-scale-up">
+    <div
+      id="checkout-modal-overlay"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/85 backdrop-blur-sm p-3 sm:p-6 flex items-center justify-center transition-opacity"
+      onClick={onClose}
+    >
+      <div
+        id="checkout-modal-card"
+        className="bg-[#091711] border border-[#224d3b] rounded-2xl max-w-2xl w-full text-[#f6f3ed] shadow-2xl overflow-hidden my-6"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
-        <div className="p-5 border-b border-[#224d3b] bg-[#0f271d] flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-[#224d3b] bg-[#0f271d] flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
             <button
+              type="button"
+              id="btn-back-from-checkout"
               onClick={onClose}
               className="p-1 rounded-md text-[#c8c0b2] hover:text-[#f6f3ed] hover:bg-[#15382a] mr-1"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <h3 className="font-serif text-xl font-bold text-[#f6f3ed]">Confirm Your Order</h3>
-              <p className="text-xs text-[#d4af37]">Hot Wok Asian Cuisine • Mumbra</p>
+              <h3 className="font-serif text-xl font-bold text-[#f6f3ed]">Customer Checkout</h3>
+              <p className="text-xs text-[#d4af37]">
+                {RESTAURANT_CONFIG.name} • {RESTAURANT_CONFIG.address.short}
+              </p>
             </div>
           </div>
           <button
+            type="button"
             id="btn-close-checkout-modal"
             onClick={onClose}
             className="p-1.5 rounded-lg bg-[#15382a] text-[#c8c0b2] hover:text-[#f6f3ed]"
@@ -128,20 +202,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmitOrder} className="p-5 sm:p-7 space-y-6">
+        <form onSubmit={handleSubmitOrder} className="p-5 sm:p-7 space-y-5">
           {errorMessage && (
-            <div className="p-3.5 rounded-lg bg-red-950/60 border border-red-500/80 text-red-200 text-xs flex items-start space-x-2">
+            <div className="p-3.5 rounded-lg bg-red-950/70 border border-red-500/80 text-red-200 text-xs flex items-start space-x-2.5">
               <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
               <span>{errorMessage}</span>
             </div>
           )}
 
-          {/* Customer Details */}
-          <div className="space-y-4">
+          {/* 1. Customer Information */}
+          <div className="space-y-3">
             <h4 className="text-xs font-semibold tracking-wider uppercase text-[#d4af37]">
               1. Customer Information
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
                 <label className="block text-xs font-medium text-[#c8c0b2] mb-1">
                   Full Name <span className="text-red-400">*</span>
@@ -152,8 +226,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   required
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="e.g. Farhan Shaikh"
-                  className="w-full bg-[#15382a]/70 border border-[#224d3b] rounded-lg px-3.5 py-2.5 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none focus:border-[#d4af37]"
+                  placeholder="e.g., Farhan Shaikh"
+                  className="w-full bg-[#15382a]/70 border border-[#224d3b] rounded-xl px-3.5 py-2.5 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none focus:border-[#d4af37]"
                 />
               </div>
 
@@ -172,96 +246,196 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                     maxLength={10}
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, ''))}
-                    placeholder="99879 74833"
-                    className="w-full bg-[#15382a]/70 border border-[#224d3b] rounded-lg pl-12 pr-3.5 py-2.5 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none focus:border-[#d4af37]"
+                    placeholder="98765 43210"
+                    className="w-full bg-[#15382a]/70 border border-[#224d3b] rounded-xl pl-12 pr-3.5 py-2.5 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none focus:border-[#d4af37]"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Dining Mode & Details */}
-          <div className="space-y-4">
+          {/* 2. Delivery / Pickup Selection */}
+          <div className="space-y-3">
             <h4 className="text-xs font-semibold tracking-wider uppercase text-[#d4af37]">
-              2. Dining Type & Preferences
+              2. Delivery or Pickup
             </h4>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                id="checkout-type-delivery"
+                onClick={() => setOrderType('delivery')}
+                className={`py-3 px-3 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center gap-1.5 transition-all ${
+                  orderType === 'delivery'
+                    ? 'bg-[#15382a] border-[#d4af37] text-[#d4af37] ring-1 ring-[#d4af37] shadow'
+                    : 'bg-[#07130e] border-[#224d3b] text-[#c8c0b2] hover:border-[#d4af37]/40'
+                }`}
+              >
+                <Bike className="w-4 h-4" />
+                <span>Doorstep Delivery</span>
+              </button>
+
+              <button
+                type="button"
+                id="checkout-type-pickup"
+                onClick={() => setOrderType('pickup')}
+                className={`py-3 px-3 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center gap-1.5 transition-all ${
+                  orderType === 'pickup' || orderType === 'takeaway'
+                    ? 'bg-[#15382a] border-[#d4af37] text-[#d4af37] ring-1 ring-[#d4af37] shadow'
+                    : 'bg-[#07130e] border-[#224d3b] text-[#c8c0b2] hover:border-[#d4af37]/40'
+                }`}
+              >
+                <PackageCheck className="w-4 h-4" />
+                <span>Store Pickup</span>
+              </button>
+
               <button
                 type="button"
                 id="checkout-type-dinein"
                 onClick={() => setOrderType('dine_in')}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
+                className={`py-3 px-3 rounded-xl border text-xs font-semibold flex flex-col items-center justify-center gap-1.5 transition-all ${
                   orderType === 'dine_in'
-                    ? 'bg-[#15382a] border-[#d4af37] text-[#d4af37] shadow'
-                    : 'bg-[#07130e] border-[#224d3b] text-[#c8c0b2]'
+                    ? 'bg-[#15382a] border-[#d4af37] text-[#d4af37] ring-1 ring-[#d4af37] shadow'
+                    : 'bg-[#07130e] border-[#224d3b] text-[#c8c0b2] hover:border-[#d4af37]/40'
                 }`}
               >
                 <Utensils className="w-4 h-4" />
-                <span>Dine-in at Restaurant</span>
-              </button>
-
-              <button
-                type="button"
-                id="checkout-type-takeaway"
-                onClick={() => setOrderType('takeaway')}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center space-x-2 transition-all ${
-                  orderType === 'takeaway'
-                    ? 'bg-[#15382a] border-[#d4af37] text-[#d4af37] shadow'
-                    : 'bg-[#07130e] border-[#224d3b] text-[#c8c0b2]'
-                }`}
-              >
-                <ShoppingBag className="w-4 h-4" />
-                <span>Takeaway Parcel (+₹25)</span>
+                <span>Dine-In Table</span>
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {orderType === 'dine_in' && (
-                <div>
-                  <label className="block text-xs font-medium text-[#c8c0b2] mb-1">
-                    Table Number (Optional if ordering from table)
-                  </label>
-                  <input
-                    id="checkout-input-table"
-                    type="text"
-                    value={tableNumber}
-                    onChange={(e) => setTableNumber(e.target.value)}
-                    placeholder="e.g. Table 4 or Counter"
-                    className="w-full bg-[#15382a]/70 border border-[#224d3b] rounded-lg px-3.5 py-2.5 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none focus:border-[#d4af37]"
+            {/* Address field: ONLY required when Delivery is selected */}
+            {orderType === 'delivery' && (
+              <div className="space-y-1.5 pt-1 animate-fade-in">
+                <label className="block text-xs font-medium text-[#c8c0b2]">
+                  Delivery Address <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-[#d4af37] absolute left-3 top-3 pointer-events-none" />
+                  <textarea
+                    id="checkout-input-address"
+                    required
+                    rows={2}
+                    value={deliveryAddress}
+                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    placeholder="Flat/House No., Building Name, Street, Landmark, Area (e.g., Flat 302, Al-Madina Heights, Kausa, Mumbra)"
+                    className="w-full bg-[#15382a]/70 border border-[#224d3b] rounded-xl pl-9 pr-3.5 py-2 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none focus:border-[#d4af37]"
                   />
                 </div>
-              )}
+                <div className="flex items-center justify-between text-[11px] text-[#8ea098]">
+                  <span>Serving Mumbra, Kausa, Shilphata, and surrounding areas.</span>
+                  {subtotal >= RESTAURANT_CONFIG.pricing.freeDeliveryThreshold ? (
+                    <span className="text-emerald-400 font-semibold">Free Delivery Qualified!</span>
+                  ) : (
+                    <span>Free delivery on orders above ₹{RESTAURANT_CONFIG.pricing.freeDeliveryThreshold}</span>
+                  )}
+                </div>
+              </div>
+            )}
 
-              <div className={orderType === 'dine_in' ? '' : 'sm:col-span-2'}>
+            {/* Pickup Location Info: Shown when Pickup is selected */}
+            {(orderType === 'pickup' || orderType === 'takeaway') && (
+              <div className="p-3 bg-[#0e241b] border border-[#224d3b] rounded-xl text-xs text-[#c8c0b2] flex items-start space-x-2.5">
+                <MapPin className="w-4 h-4 text-[#d4af37] flex-shrink-0 mt-0.5" />
+                <div>
+                  <span className="text-[#f6f3ed] font-semibold block">Pickup Counter:</span>
+                  <span>{RESTAURANT_CONFIG.name}, {RESTAURANT_CONFIG.address.short}. Ready in ~20–25 minutes.</span>
+                </div>
+              </div>
+            )}
+
+            {/* Table number if dine-in */}
+            {orderType === 'dine_in' && (
+              <div>
                 <label className="block text-xs font-medium text-[#c8c0b2] mb-1">
-                  Special Instructions / Preparation Preferences
+                  Table Number (Optional if ordering from table)
                 </label>
+                <input
+                  id="checkout-input-table"
+                  type="text"
+                  value={tableNumber}
+                  onChange={(e) => setTableNumber(e.target.value)}
+                  placeholder="e.g., Table 4 or Counter"
+                  className="w-full bg-[#15382a]/70 border border-[#224d3b] rounded-xl px-3.5 py-2 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none focus:border-[#d4af37]"
+                />
+              </div>
+            )}
+
+            {/* Special Instructions */}
+            <div>
+              <label className="block text-xs font-medium text-[#c8c0b2] mb-1">
+                Special Instructions / Customizations (Optional)
+              </label>
+              <div className="relative">
+                <FileText className="w-4 h-4 text-[#8ea098] absolute left-3 top-2.5 pointer-events-none" />
                 <input
                   id="checkout-input-instructions"
                   type="text"
                   value={specialInstructions}
                   onChange={(e) => setSpecialInstructions(e.target.value)}
-                  placeholder="e.g., Extra Schezwan chutney, mild spice, no onions..."
-                  className="w-full bg-[#15382a]/70 border border-[#224d3b] rounded-lg px-3.5 py-2.5 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none focus:border-[#d4af37]"
+                  placeholder="e.g., Extra spicy schezwan chutney, crispy noodles, less oil..."
+                  className="w-full bg-[#15382a]/70 border border-[#224d3b] rounded-xl pl-9 pr-3.5 py-2 text-sm text-[#f6f3ed] placeholder-[#8ea098] focus:outline-none focus:border-[#d4af37]"
                 />
               </div>
             </div>
+
+            {/* Packaging Fee Toggle for Takeout/Delivery */}
+            {isTakeoutOrDelivery && (
+              <button
+                type="button"
+                id="checkout-toggle-packaging"
+                onClick={() => setIncludePackaging(!includePackaging)}
+                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-[#0e241b] border border-[#224d3b] text-left hover:border-[#d4af37]/40 transition"
+              >
+                <div className="flex items-center space-x-2">
+                  {includePackaging ? (
+                    <CheckSquare className="w-4 h-4 text-[#d4af37] flex-shrink-0" />
+                  ) : (
+                    <Square className="w-4 h-4 text-[#8ea098] flex-shrink-0" />
+                  )}
+                  <div>
+                    <span className="text-xs font-medium text-[#f6f3ed] block">
+                      Include Food Packaging Charge
+                    </span>
+                    <span className="text-[10px] text-[#8ea098]">
+                      Spill-proof takeaway boxes & carry bag
+                    </span>
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-[#d4af37]">
+                  +₹{RESTAURANT_CONFIG.pricing.defaultPackagingFee}
+                </span>
+              </button>
+            )}
           </div>
 
-          {/* Itemized Order Summary */}
-          <div className="space-y-3 bg-[#07130e] border border-[#224d3b] rounded-xl p-4">
+          {/* 3. Itemized Order Summary */}
+          <div className="space-y-2.5 bg-[#07130e] border border-[#224d3b] rounded-xl p-4">
             <h4 className="text-xs font-semibold tracking-wider uppercase text-[#d4af37]">
               3. Order Summary ({cart.length} item{cart.length === 1 ? '' : 's'})
             </h4>
-            <div className="max-h-40 overflow-y-auto space-y-2 pr-1 divide-y divide-[#224d3b]/40 text-xs">
+            <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 divide-y divide-[#224d3b]/40 text-xs">
               {cart.map((item) => (
-                <div key={item.id} className="pt-2 first:pt-0 flex justify-between items-center">
+                <div key={item.id} className="pt-1.5 first:pt-0 flex justify-between items-center">
                   <div className="flex items-center space-x-2">
-                    <span className="font-semibold text-[#f6f3ed]">
-                      {item.quantity}x
+                    <span className="font-bold text-[#f6f3ed]">
+                      {item.quantity}×
                     </span>
                     <span className="text-[#c8c0b2]">
-                      {item.name} {item.portion !== 'single' && `(${item.portion.toUpperCase()})`}
+                      {item.name}{' '}
+                      {item.portion !== 'single' && (
+                        <span className="text-[#8ea098]">[{item.portion.toUpperCase()}]</span>
+                      )}
+                      {item.dietaryChoice && (
+                        <span
+                          className={`ml-1 text-[9px] font-bold px-1 py-0.2 rounded ${
+                            item.dietaryChoice === 'veg'
+                              ? 'text-emerald-400 bg-emerald-950/60'
+                              : 'text-red-400 bg-red-950/60'
+                          }`}
+                        >
+                          {item.dietaryChoice.toUpperCase()}
+                        </span>
+                      )}
                     </span>
                   </div>
                   <span className="font-serif font-bold text-[#d4af37]">
@@ -271,7 +445,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               ))}
             </div>
 
-            <div className="pt-3 border-t border-[#224d3b] space-y-1 text-xs text-[#c8c0b2]">
+            <div className="pt-2 border-t border-[#224d3b] space-y-1 text-xs text-[#c8c0b2]">
               <div className="flex justify-between">
                 <span>Subtotal:</span>
                 <span>₹{subtotal}</span>
@@ -286,48 +460,63 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <span>₹{packagingCharge}</span>
                 </div>
               )}
+              {orderType === 'delivery' && (
+                <div className="flex justify-between">
+                  <span>Delivery Charge:</span>
+                  {deliveryFee === 0 ? (
+                    <span className="text-emerald-400 font-semibold uppercase text-[10px]">
+                      FREE
+                    </span>
+                  ) : (
+                    <span>₹{deliveryFee}</span>
+                  )}
+                </div>
+              )}
               <div className="flex justify-between text-base font-bold text-[#f6f3ed] pt-2 border-t border-[#224d3b]/80">
-                <span className="font-serif">Final Total:</span>
+                <span className="font-serif">Grand Total:</span>
                 <span className="font-serif text-[#d4af37]">₹{total}</span>
               </div>
             </div>
 
-            {/* Clear Payment Notification */}
-            <div className="p-3 bg-[#15382a]/50 rounded-lg border border-[#d4af37]/30 text-xs text-[#f6f3ed] flex items-center justify-between">
+            {/* Demo Payment Notice */}
+            <div className="p-2.5 bg-[#15382a]/50 rounded-lg border border-[#d4af37]/30 text-xs text-[#f6f3ed] flex items-center justify-between">
               <div>
-                <span className="font-bold text-[#d4af37] block">Payment Method:</span>
-                <span className="text-[#c8c0b2]">Pay at Restaurant (Cash, UPI & Card accepted at counter)</span>
+                <span className="font-bold text-[#d4af37] block">Payment Notice:</span>
+                <span className="text-[#c8c0b2]">
+                  {orderType === 'delivery'
+                    ? 'Cash on Delivery / UPI at doorstep (No online card charged)'
+                    : 'Pay at Counter / Table upon arrival (Cash / UPI / Card)'}
+                </span>
               </div>
-              <span className="px-2.5 py-1 rounded bg-[#091711] border border-[#d4af37] text-[10px] font-bold text-[#d4af37]">
-                PAY AT RESTAURANT
-              </span>
+              <ShieldCheck className="w-5 h-5 text-[#d4af37] flex-shrink-0 ml-2" />
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-end space-x-3 pt-2">
+          {/* Form Actions */}
+          <div className="flex items-center justify-end space-x-3 pt-1">
             <button
               type="button"
+              id="btn-cancel-checkout"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-lg border border-[#224d3b] text-xs font-semibold text-[#c8c0b2] hover:text-[#f6f3ed] hover:bg-[#15382a]"
+              className="px-4 py-2.5 rounded-xl border border-[#224d3b] text-xs font-semibold text-[#c8c0b2] hover:text-[#f6f3ed] hover:bg-[#15382a]"
             >
-              Back to Menu
+              Cancel
             </button>
             <button
               type="submit"
               id="btn-submit-order"
               disabled={isSubmitting}
-              className="px-6 py-3 rounded-lg bg-gradient-to-r from-[#d4af37] to-[#b89327] hover:from-[#e2c258] hover:to-[#c59b27] text-[#091711] font-bold text-xs tracking-wider uppercase transition-all shadow-lg flex items-center space-x-2 disabled:opacity-50"
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#d4af37] via-[#f1d779] to-[#c59b27] hover:brightness-110 text-[#091711] font-bold text-xs tracking-wider uppercase transition-all shadow-lg flex items-center space-x-2 disabled:opacity-50 active:scale-[0.98]"
             >
               {isSubmitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-[#091711] border-t-transparent rounded-full animate-spin" />
-                  <span>Creating Order...</span>
+                  <span>Processing...</span>
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Place Order (₹{total})</span>
+                  <span>Confirm Order (₹{total})</span>
                 </>
               )}
             </button>
