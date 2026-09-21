@@ -1,0 +1,6 @@
+{
+  "name": "Hot Wok Asian Cuisine",
+  "description": "Premium Asian fusion restaurant in Mumbra offering Chinese, Korean, Malaysian, and Thai specialties with online ordering, table reservations, and admin management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
